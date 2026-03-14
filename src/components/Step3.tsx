@@ -41,6 +41,7 @@ export function Step3({
 
   const [reforcoData, setReforcoData] = useState<Date | null>(null);
   const [reforcoValor, setReforcoValor] = useState('');
+  const [manualNumeros, setManualNumeros] = useState<number[] | null>(null);
 
   // Parcelas não selecionadas (mantidas) — excluindo entrada
   const parcelasMantidas = useMemo(
