@@ -18,6 +18,7 @@ const Index = () => {
   const [reportFile, setReportFile] = useState<File | null>(null);
   const [taxaJuros, setTaxaJuros] = useState(0);
   const [custosAdicionais, setCustosAdicionais] = useState(0);
+  const [dataRenegociacao, setDataRenegociacao] = useState<Date | null>(null);
   const [parcelas, setParcelas] = useState<Parcela[]>([]);
 
   // Step 2 state
