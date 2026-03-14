@@ -35,7 +35,7 @@ interface Step3Props {
 }
 
 export function Step3({
-  parcelas, selectedParcelas, selectedIds, taxaJuros, custosAdicionais, numParcelas, startDate, reforcos,
+  parcelas, selectedParcelas, selectedIds, taxaJuros, custosAdicionais, dataRenegociacao, numParcelas, startDate, reforcos,
   onNumParcelas, onStartDate, onReforcos, onSimulationResult, onNext, onBack
 }: Step3Props) {
 
