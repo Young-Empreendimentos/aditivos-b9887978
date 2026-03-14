@@ -23,10 +23,10 @@ function buildQuadro1Text(parcelas: Parcela[]): string {
 }
 
 function buildQuadro2Text(parcelas: NovaParcela[]): string {
-  const header = 'Nº Parcela | Data Vencimento | Valor da Nova Parcela';
-  const separator = '-'.repeat(55);
+  const header = 'Nº Parcela | Data Vencimento | Valor | Tipo';
+  const separator = '-'.repeat(60);
   const rows = parcelas.map(
-    (p) => `${String(p.numero).padStart(2, '0')} | ${formatDate(p.dataVencimento)} | ${formatCurrency(p.valor)}`
+    (p) => `${String(p.numero).padStart(2, '0')} | ${formatDate(p.dataVencimento)} | ${formatCurrency(p.valor)} | ${p.tipo === 'reforco' ? 'Reforço' : p.tipo === 'mantida' ? 'Mantida' : 'Nova'}`
   );
   return [header, separator, ...rows].join('\n');
 }
