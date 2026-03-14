@@ -1,5 +1,5 @@
 import type { NovaParcela, Reforco } from '@/types/contract';
-import { addMonths, differenceInMonths } from 'date-fns';
+import { addMonths } from 'date-fns';
 
 /**
  * PMT = PV × [i(1+i)^n] / [(1+i)^n - 1]
