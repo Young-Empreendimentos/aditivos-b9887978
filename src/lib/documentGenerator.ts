@@ -44,7 +44,7 @@ export async function generateDocx(
   const doc = new Docxtemplater(zip, {
     paragraphLoop: true,
     linebreaks: true,
-    delimiters: { start: '{{', end: '}}' },
+    delimiters: { start: '{', end: '}' },
   });
 
   doc.render({
