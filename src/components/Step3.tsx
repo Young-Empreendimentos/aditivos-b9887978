@@ -287,8 +287,8 @@ export function Step3({
                   <div className="flex items-center gap-4">
                     <span className="tabular-nums">{format(r.data, 'dd/MM/yyyy', { locale: ptBR })}</span>
                     <span className="font-semibold tabular-nums">{formatCurrency(r.valor)}</span>
-                    {startDate && (() => {
-                      const dias = Math.max(0, Math.round((r.data.getTime() - startDate.getTime()) / 86400000));
+                    {(() => {
+                      const dias = Math.max(0, Math.round((r.data.getTime() - dataRenegociacao.getTime()) / 86400000));
                       const iMensal = taxaJuros / 100;
                       const iDiaria = Math.pow(1 + iMensal, 1 / 30) - 1;
                       const vp = (iMensal === 0 || dias === 0) ? r.valor : r.valor / Math.pow(1 + iDiaria, dias);
