@@ -70,7 +70,7 @@ export function Step1({
         <CardHeader>
           <CardTitle className="text-lg">Parâmetros Financeiros</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-2">
             <Label htmlFor="taxa">Taxa de Juros (% a.m.)</Label>
             <div className="relative">
@@ -103,6 +103,29 @@ export function Step1({
               />
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Data da Renegociação</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn('w-full justify-start text-left font-normal', !dataRenegociacao && 'text-muted-foreground')}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dataRenegociacao ? format(dataRenegociacao, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecionar data'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dataRenegociacao || undefined}
+                  onSelect={(d) => d && onDataRenegociacao(d)}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </CardContent>
       </Card>
