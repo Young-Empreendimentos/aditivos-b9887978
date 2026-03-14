@@ -5,7 +5,7 @@ import { Step2 } from '@/components/Step2';
 import { Step3 } from '@/components/Step3';
 import { Step4 } from '@/components/Step4';
 import { parseReportFile } from '@/lib/parseReport';
-import type { Parcela, NovaParcela } from '@/types/contract';
+import type { Parcela, NovaParcela, Reforco } from '@/types/contract';
 import { toast } from 'sonner';
 
 const STEPS = ['Dados', 'Seleção', 'Simulação', 'Revisão'];
@@ -26,6 +26,7 @@ const Index = () => {
   // Step 3 state
   const [numParcelas, setNumParcelas] = useState(0);
   const [startDate, setStartDate] = useState<Date | null>(null);
+  const [reforcos, setReforcos] = useState<Reforco[]>([]);
   const [novasParcelas, setNovasParcelas] = useState<NovaParcela[]>([]);
   const [pvTotal, setPvTotal] = useState(0);
   const [pmtValue, setPmtValue] = useState(0);
@@ -95,13 +96,17 @@ const Index = () => {
 
         {currentStep === 3 && (
           <Step3
+            parcelas={parcelas}
             selectedParcelas={selectedParcelas}
+            selectedIds={selectedIds}
             taxaJuros={taxaJuros}
             custosAdicionais={custosAdicionais}
             numParcelas={numParcelas}
             startDate={startDate}
+            reforcos={reforcos}
             onNumParcelas={setNumParcelas}
             onStartDate={setStartDate}
+            onReforcos={setReforcos}
             onSimulationResult={handleSimulationResult}
             onNext={() => setCurrentStep(4)}
             onBack={() => setCurrentStep(2)}
@@ -111,6 +116,7 @@ const Index = () => {
         {currentStep === 4 && (
           <Step4
             templateFile={templateFile}
+            allParcelas={parcelas}
             selectedParcelas={selectedParcelas}
             novasParcelas={novasParcelas}
             taxaJuros={taxaJuros}

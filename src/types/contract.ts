@@ -17,6 +17,13 @@ export interface NovaParcela {
   numero: number;
   dataVencimento: Date;
   valor: number;
+  tipo?: 'nova' | 'reforco' | 'mantida';
+}
+
+export interface Reforco {
+  id: string;
+  data: Date;
+  valor: number;
 }
 
 export interface ContractState {
