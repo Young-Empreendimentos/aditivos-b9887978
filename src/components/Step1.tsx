@@ -26,8 +26,8 @@ interface Step1Props {
 }
 
 export function Step1({
-  templateFile, reportFile, taxaJuros, custosAdicionais,
-  onTemplateFile, onReportFile, onTaxaJuros, onCustosAdicionais, onNext
+  templateFile, reportFile, taxaJuros, custosAdicionais, dataRenegociacao,
+  onTemplateFile, onReportFile, onTaxaJuros, onCustosAdicionais, onDataRenegociacao, onNext
 }: Step1Props) {
 
   const handleNext = () => {
