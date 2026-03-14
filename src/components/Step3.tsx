@@ -283,13 +283,13 @@ export function Step3({
                     <span className="tabular-nums">{format(r.data, 'dd/MM/yyyy', { locale: ptBR })}</span>
                     <span className="font-semibold tabular-nums">{formatCurrency(r.valor)}</span>
                     {startDate && (() => {
-                      const diffMs = r.data.getTime() - startDate.getTime();
-                      const t = Math.max(0, diffMs / (30.4375 * 86400000));
-                      const i = taxaJuros / 100;
-                      const vp = (i === 0 || t === 0) ? r.valor : r.valor / Math.pow(1 + i, t);
+                      const dias = Math.max(0, Math.round((r.data.getTime() - startDate.getTime()) / 86400000));
+                      const iMensal = taxaJuros / 100;
+                      const iDiaria = Math.pow(1 + iMensal, 1 / 30) - 1;
+                      const vp = (iMensal === 0 || dias === 0) ? r.valor : r.valor / Math.pow(1 + iDiaria, dias);
                       return (
                         <span className="text-muted-foreground text-xs">
-                          VP: {formatCurrency(vp)}
+                          VP: {formatCurrency(vp)} ({dias}d)
                         </span>
                       );
                     })()}
