@@ -119,7 +119,7 @@ export function Step3({
     // Renumerar
     merged.forEach((item, idx) => { item.numero = idx + 1; });
 
-    return items;
+    return merged;
   }, [parcelasMantidas, reforcos, novasParcelasPMT]);
 
   const totalRenegociado = quadro2Completo.reduce((s, p) => s + p.valor, 0);
