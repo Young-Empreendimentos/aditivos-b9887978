@@ -15,6 +15,7 @@ interface Step4Props {
   templateFile: File | null;
   allParcelas: Parcela[];
   selectedParcelas: Parcela[];
+  selectedIds: Set<number>;
   novasParcelas: NovaParcela[];
   taxaJuros: number;
   custosAdicionais: number;
