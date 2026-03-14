@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, ArrowLeft, ArrowRight, Plus, Trash2 } from 'lucide-react';
+import { CalendarIcon, ArrowLeft, ArrowRight, ArrowDown, Plus, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -41,6 +41,7 @@ export function Step3({
 
   const [reforcoData, setReforcoData] = useState<Date | null>(null);
   const [reforcoValor, setReforcoValor] = useState('');
+  const [manualNumeros, setManualNumeros] = useState<number[] | null>(null);
 
   // Parcelas não selecionadas (mantidas) — excluindo entrada
   const parcelasMantidas = useMemo(
@@ -121,11 +122,15 @@ export function Step3({
       }
     }
 
-    // Renumerar
-    merged.forEach((item, idx) => { item.numero = idx + 1; });
+    // Aplicar numeração manual ou automática
+    if (manualNumeros && manualNumeros.length === merged.length) {
+      merged.forEach((item, idx) => { item.numero = manualNumeros[idx]; });
+    } else {
+      merged.forEach((item, idx) => { item.numero = idx + 1; });
+    }
 
     return merged;
-  }, [parcelasMantidas, reforcos, novasParcelasPMT]);
+  }, [parcelasMantidas, reforcos, novasParcelasPMT, manualNumeros]);
 
   const totalRenegociado = quadro2Completo.reduce((s, p) => s + p.valor, 0);
   const totalJuros = totalRenegociado - pvBruto;
@@ -326,9 +331,40 @@ export function Step3({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {quadro2Completo.map((p) => (
-                    <TableRow key={`${p.tipo}-${p.numero}`} className={p.tipo === 'reforco' ? 'bg-accent/30' : p.tipo === 'mantida' ? 'bg-muted/30' : ''}>
-                      <TableCell className="tabular-nums font-medium">{String(p.numero).padStart(2, '0')}</TableCell>
+                  {quadro2Completo.map((p, idx) => (
+                    <TableRow key={`${p.tipo}-${idx}`} className={p.tipo === 'reforco' ? 'bg-accent/30' : p.tipo === 'mantida' ? 'bg-muted/30' : ''}>
+                      <TableCell className="tabular-nums font-medium">
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            min={0}
+                            value={p.numero}
+                            onChange={(e) => {
+                              const newNum = parseInt(e.target.value) || 0;
+                              const updated = [...quadro2Completo];
+                              updated[idx] = { ...updated[idx], numero: newNum };
+                              setManualNumeros(updated.map(u => u.numero));
+                            }}
+                            className="w-16 h-7 text-center tabular-nums px-1"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 shrink-0"
+                            title="Renumerar daqui para baixo (+1)"
+                            onClick={() => {
+                              const updated = [...quadro2Completo];
+                              const startNum = updated[idx].numero;
+                              for (let i = idx; i < updated.length; i++) {
+                                updated[i] = { ...updated[i], numero: startNum + (i - idx) };
+                              }
+                              setManualNumeros(updated.map(u => u.numero));
+                            }}
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
                       <TableCell className="tabular-nums">{format(p.dataVencimento, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatCurrency(p.valor)}</TableCell>
                       <TableCell>
