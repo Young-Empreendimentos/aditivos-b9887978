@@ -15,14 +15,16 @@ export function calculatePMT(pv: number, monthlyRate: number, n: number): number
 
 /**
  * Calcula o valor presente de um reforço.
- * PV_reforço = valor / (1+i)^t, onde t = meses (fracionário) entre startDate e data do reforço
+ * Converte taxa mensal para diária: i_diária = (1+i_mensal)^(1/30) - 1
+ * PV = valor / (1 + i_diária)^dias
  */
 export function calcularPVReforco(reforco: Reforco, startDate: Date, monthlyRate: number): number {
   const diffMs = reforco.data.getTime() - startDate.getTime();
-  const t = Math.max(0, diffMs / (30.4375 * 86400000)); // meses fracionários
-  if (monthlyRate === 0 || t === 0) return reforco.valor;
-  const i = monthlyRate / 100;
-  return reforco.valor / Math.pow(1 + i, t);
+  const dias = Math.max(0, Math.round(diffMs / 86400000));
+  if (monthlyRate === 0 || dias === 0) return reforco.valor;
+  const iMensal = monthlyRate / 100;
+  const iDiaria = Math.pow(1 + iMensal, 1 / 30) - 1;
+  return reforco.valor / Math.pow(1 + iDiaria, dias);
 }
 
 export function calcularTotalPVReforcos(reforcos: Reforco[], startDate: Date, monthlyRate: number): number {
