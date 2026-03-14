@@ -139,7 +139,7 @@ export function Step4({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {novasParcelas.map((p) => (
+                  {[...novasParcelas].sort((a, b) => a.numero - b.numero).map((p) => (
                     <TableRow key={`${p.tipo}-${p.numero}`} className={p.tipo === 'reforco' ? 'bg-accent/30' : p.tipo === 'mantida' ? 'bg-muted/30' : ''}>
                       <TableCell className="tabular-nums font-medium">{String(p.numero).padStart(2, '0')}</TableCell>
                       <TableCell className="tabular-nums">{format(p.dataVencimento, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
