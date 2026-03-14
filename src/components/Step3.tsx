@@ -122,11 +122,15 @@ export function Step3({
       }
     }
 
-    // Renumerar
-    merged.forEach((item, idx) => { item.numero = idx + 1; });
+    // Aplicar numeração manual ou automática
+    if (manualNumeros && manualNumeros.length === merged.length) {
+      merged.forEach((item, idx) => { item.numero = manualNumeros[idx]; });
+    } else {
+      merged.forEach((item, idx) => { item.numero = idx + 1; });
+    }
 
     return merged;
-  }, [parcelasMantidas, reforcos, novasParcelasPMT]);
+  }, [parcelasMantidas, reforcos, novasParcelasPMT, manualNumeros]);
 
   const totalRenegociado = quadro2Completo.reduce((s, p) => s + p.valor, 0);
   const totalJuros = totalRenegociado - pvBruto;
