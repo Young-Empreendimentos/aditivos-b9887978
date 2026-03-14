@@ -22,6 +22,7 @@ interface Step3Props {
   selectedIds: Set<number>;
   taxaJuros: number;
   custosAdicionais: number;
+  dataRenegociacao: Date;
   numParcelas: number;
   startDate: Date | null;
   reforcos: Reforco[];
