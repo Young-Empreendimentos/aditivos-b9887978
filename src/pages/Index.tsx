@@ -77,10 +77,12 @@ const Index = () => {
             reportFile={reportFile}
             taxaJuros={taxaJuros}
             custosAdicionais={custosAdicionais}
+            dataRenegociacao={dataRenegociacao}
             onTemplateFile={setTemplateFile}
             onReportFile={setReportFile}
             onTaxaJuros={setTaxaJuros}
             onCustosAdicionais={setCustosAdicionais}
+            onDataRenegociacao={setDataRenegociacao}
             onNext={handleStep1Next}
           />
         )}
