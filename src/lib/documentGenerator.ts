@@ -13,22 +13,48 @@ function formatDate(date: Date): string {
   return format(date, 'dd/MM/yyyy', { locale: ptBR });
 }
 
-function buildQuadro1Text(parcelas: Parcela[]): string {
-  const header = 'Nº Parcela | Data Vencimento | Valor Original';
-  const separator = '-'.repeat(50);
-  const rows = parcelas.map(
-    (p) => `${String(p.numero).padStart(2, '0')} | ${formatDate(p.dataVencimento)} | ${formatCurrency(p.valorOriginal)}`
-  );
-  return [header, separator, ...rows].join('\n');
+function ooCell(text: string, bold = false, align: 'left' | 'center' | 'right' = 'left'): string {
+  const jc = align === 'right' ? 'end' : align === 'center' ? 'center' : 'start';
+  const rPr = bold ? '<w:rPr><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>' : '<w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>';
+  return `<w:tc><w:tcPr><w:tcBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:left w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:right w:val="single" w:sz="4" w:space="0" w:color="999999"/></w:tcBorders></w:tcPr><w:p><w:pPr><w:jc w:val="${jc}"/></w:pPr><w:r>${rPr}<w:t xml:space="preserve">${text}</w:t></w:r></w:p></w:tc>`;
 }
 
-function buildQuadro2Text(parcelas: NovaParcela[]): string {
-  const header = 'Nº Parcela | Data Vencimento | Valor | Tipo';
-  const separator = '-'.repeat(60);
-  const rows = parcelas.map(
-    (p) => `${String(p.numero).padStart(2, '0')} | ${formatDate(p.dataVencimento)} | ${formatCurrency(p.valor)} | ${p.tipo === 'reforco' ? 'Reforço' : p.tipo === 'mantida' ? 'Mantida' : 'Nova'}`
-  );
-  return [header, separator, ...rows].join('\n');
+function ooRow(cells: string[], isHeader = false): string {
+  return `<w:tr>${isHeader ? '<w:trPr><w:tblHeader/></w:trPr>' : ''}${cells.join('')}</w:tr>`;
+}
+
+function buildQuadro1Xml(parcelas: Parcela[]): string {
+  const headerRow = ooRow([
+    ooCell('Nº Parcela', true, 'center'),
+    ooCell('Data Vencimento', true, 'center'),
+    ooCell('Valor Original', true, 'center'),
+  ], true);
+
+  const dataRows = parcelas.map(p => ooRow([
+    ooCell(String(p.numero).padStart(2, '0'), false, 'center'),
+    ooCell(formatDate(p.dataVencimento), false, 'center'),
+    ooCell(formatCurrency(p.valorOriginal), false, 'right'),
+  ]));
+
+  return `<w:tbl><w:tblPr><w:tblStyle w:val="TableGrid"/><w:tblW w:w="5000" w:type="pct"/><w:jc w:val="center"/><w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:left w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:right w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="999999"/></w:tblBorders></w:tblPr>${headerRow}${dataRows.join('')}</w:tbl>`;
+}
+
+function buildQuadro2Xml(parcelas: NovaParcela[]): string {
+  const headerRow = ooRow([
+    ooCell('Nº Parcela', true, 'center'),
+    ooCell('Data Vencimento', true, 'center'),
+    ooCell('Valor', true, 'center'),
+    ooCell('Tipo', true, 'center'),
+  ], true);
+
+  const dataRows = parcelas.map(p => ooRow([
+    ooCell(String(p.numero).padStart(2, '0'), false, 'center'),
+    ooCell(formatDate(p.dataVencimento), false, 'center'),
+    ooCell(formatCurrency(p.valor), false, 'right'),
+    ooCell(p.tipo === 'reforco' ? 'Reforço' : p.tipo === 'mantida' ? 'Mantida' : 'Nova', false, 'center'),
+  ]));
+
+  return `<w:tbl><w:tblPr><w:tblStyle w:val="TableGrid"/><w:tblW w:w="5000" w:type="pct"/><w:jc w:val="center"/><w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:left w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:right w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="999999"/></w:tblBorders></w:tblPr>${headerRow}${dataRows.join('')}</w:tbl>`;
 }
 
 export async function generateDocx(
@@ -41,6 +67,8 @@ export async function generateDocx(
 ): Promise<Blob> {
   const arrayBuffer = await templateFile.arrayBuffer();
   const zip = new PizZip(arrayBuffer);
+
+  // First pass: render simple text placeholders with docxtemplater
   const doc = new Docxtemplater(zip, {
     paragraphLoop: true,
     linebreaks: true,
@@ -48,14 +76,31 @@ export async function generateDocx(
   });
 
   doc.render({
-    QUADRO_1: buildQuadro1Text(selectedParcelas),
-    QUADRO_2: buildQuadro2Text(novasParcelas),
+    QUADRO_1: '___QUADRO1_PLACEHOLDER___',
+    QUADRO_2: '___QUADRO2_PLACEHOLDER___',
     JUROS_ADOTADOS: `${taxaJuros.toFixed(2).replace('.', ',')}% a.m.`,
     CUSTOS_ADICIONAIS: formatCurrency(custosAdicionais),
     VALOR_TOTAL_RENEGOCIADO: formatCurrency(valorTotalRenegociado),
   });
 
-  const out = doc.getZip().generate({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  // Second pass: replace placeholder paragraphs with actual OOXML tables
+  const processedZip = doc.getZip();
+  let docXml = processedZip.file('word/document.xml')!.asText();
+
+  // Replace the paragraph containing the placeholder with the table XML
+  const replacePlaceholder = (xml: string, placeholder: string, tableXml: string): string => {
+    // Match the entire <w:p> element containing our placeholder text
+    const escapedPh = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`<w:p[^>]*>(?:(?!<w:p[ >]).)*?${escapedPh}.*?</w:p>`, 's');
+    return xml.replace(regex, tableXml);
+  };
+
+  docXml = replacePlaceholder(docXml, '___QUADRO1_PLACEHOLDER___', buildQuadro1Xml(selectedParcelas));
+  docXml = replacePlaceholder(docXml, '___QUADRO2_PLACEHOLDER___', buildQuadro2Xml(novasParcelas));
+
+  processedZip.file('word/document.xml', docXml);
+
+  const out = processedZip.generate({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
   return out;
 }
 
