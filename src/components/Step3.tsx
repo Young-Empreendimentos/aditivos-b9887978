@@ -99,11 +99,27 @@ export function Step3({
       items.push({ ...p, tipo: 'nova' });
     });
 
-    // Ordenar por data e renumerar
+    // Ordenar por data
     items.sort((a, b) => a.dataVencimento.getTime() - b.dataVencimento.getTime());
-    items.forEach((item, idx) => { item.numero = idx + 1; });
 
-    return items;
+    // Agrupar parcelas na mesma data em uma única parcela
+    const merged: NovaParcela[] = [];
+    for (const item of items) {
+      const dateKey = item.dataVencimento.getTime();
+      const existing = merged.find(m => m.dataVencimento.getTime() === dateKey);
+      if (existing) {
+        existing.valor += item.valor;
+        // Se qualquer uma for 'nova', marca como 'nova'
+        if (item.tipo === 'nova' || existing.tipo === 'nova') existing.tipo = 'nova';
+      } else {
+        merged.push({ ...item });
+      }
+    }
+
+    // Renumerar
+    merged.forEach((item, idx) => { item.numero = idx + 1; });
+
+    return merged;
   }, [parcelasMantidas, reforcos, novasParcelasPMT]);
 
   const totalRenegociado = quadro2Completo.reduce((s, p) => s + p.valor, 0);
