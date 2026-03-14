@@ -282,11 +282,17 @@ export function Step3({
                   <div className="flex items-center gap-4">
                     <span className="tabular-nums">{format(r.data, 'dd/MM/yyyy', { locale: ptBR })}</span>
                     <span className="font-semibold tabular-nums">{formatCurrency(r.valor)}</span>
-                    {startDate && (
-                      <span className="text-muted-foreground text-xs">
-                        VP: {formatCurrency(r.valor / Math.pow(1 + taxaJuros / 100, Math.max(0, Math.round((r.data.getTime() - startDate.getTime()) / (30.44 * 86400000)))))}
-                      </span>
-                    )}
+                    {startDate && (() => {
+                      const diffMs = r.data.getTime() - startDate.getTime();
+                      const t = Math.max(0, diffMs / (30.4375 * 86400000));
+                      const i = taxaJuros / 100;
+                      const vp = (i === 0 || t === 0) ? r.valor : r.valor / Math.pow(1 + i, t);
+                      return (
+                        <span className="text-muted-foreground text-xs">
+                          VP: {formatCurrency(vp)}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeReforco(r.id)}>
                     <Trash2 className="w-4 h-4 text-destructive" />
