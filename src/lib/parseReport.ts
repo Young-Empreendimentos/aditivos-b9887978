@@ -47,7 +47,7 @@ export async function parseReportFile(file: File): Promise<Parcela[]> {
     if (!row) continue;
     const cells = row.map((c: any) => String(c).toLowerCase().trim());
 
-    const dataIdx = cells.findIndex((c: string) => c.includes('data vencto') || c.includes('data venc') || c.includes('vencimento'));
+    const dataIdx = cells.findIndex((c: string) => c.includes('data vencto') || c.includes('data venc') || c.includes('data vcto') || c.includes('vencimento'));
     const parIdx = cells.findIndex((c: string) => c === 'par' || c.includes('parcela'));
     const tipoIdx = cells.findIndex((c: string) => c.includes('tipo cond') || c.includes('condição') || c.includes('condicao'));
     const vlrOrigIdx = cells.findIndex((c: string) => c.includes('valor original') || c.includes('vlr original') || c.includes('vl. original'));
