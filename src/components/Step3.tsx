@@ -48,14 +48,18 @@ export function Step3({
     [parcelas, selectedIds]
   );
 
+  // PV bruto = soma dos saldos capitalizados até a data da renegociação + custos
   const pvBruto = useMemo(
-    () => selectedParcelas.reduce((s, p) => s + p.saldoAtual, 0) + custosAdicionais,
-    [selectedParcelas, custosAdicionais]
+    () => selectedParcelas.reduce((s, p) => 
+      s + capitalizarParcelaParaDataBase(p.saldoAtual, p.dataVencimento, dataRenegociacao, taxaJuros), 0
+    ) + custosAdicionais,
+    [selectedParcelas, custosAdicionais, dataRenegociacao, taxaJuros]
   );
 
+  // VP dos reforços descontados até a data da renegociação
   const totalPVReforcos = useMemo(
-    () => startDate ? calcularTotalPVReforcos(reforcos, startDate, taxaJuros) : 0,
-    [reforcos, startDate, taxaJuros]
+    () => calcularTotalPVReforcos(reforcos, dataRenegociacao, taxaJuros),
+    [reforcos, dataRenegociacao, taxaJuros]
   );
 
   const pvTotal = Math.max(0, pvBruto - totalPVReforcos);
