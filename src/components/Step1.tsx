@@ -1,9 +1,14 @@
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowRight } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ArrowRight, CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface Step1Props {
@@ -11,16 +16,18 @@ interface Step1Props {
   reportFile: File | null;
   taxaJuros: number;
   custosAdicionais: number;
+  dataRenegociacao: Date | null;
   onTemplateFile: (f: File) => void;
   onReportFile: (f: File) => void;
   onTaxaJuros: (v: number) => void;
   onCustosAdicionais: (v: number) => void;
+  onDataRenegociacao: (d: Date) => void;
   onNext: () => void;
 }
 
 export function Step1({
-  templateFile, reportFile, taxaJuros, custosAdicionais,
-  onTemplateFile, onReportFile, onTaxaJuros, onCustosAdicionais, onNext
+  templateFile, reportFile, taxaJuros, custosAdicionais, dataRenegociacao,
+  onTemplateFile, onReportFile, onTaxaJuros, onCustosAdicionais, onDataRenegociacao, onNext
 }: Step1Props) {
 
   const handleNext = () => {
@@ -30,6 +37,10 @@ export function Step1({
     }
     if (taxaJuros <= 0 || taxaJuros > 100) {
       toast.error('Informe uma taxa de juros válida (entre 0 e 100%)');
+      return;
+    }
+    if (!dataRenegociacao) {
+      toast.error('Informe a data da renegociação');
       return;
     }
     onNext();
@@ -63,7 +74,7 @@ export function Step1({
         <CardHeader>
           <CardTitle className="text-lg">Parâmetros Financeiros</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-2">
             <Label htmlFor="taxa">Taxa de Juros (% a.m.)</Label>
             <div className="relative">
@@ -96,6 +107,29 @@ export function Step1({
               />
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Data da Renegociação</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn('w-full justify-start text-left font-normal', !dataRenegociacao && 'text-muted-foreground')}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dataRenegociacao ? format(dataRenegociacao, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecionar data'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dataRenegociacao || undefined}
+                  onSelect={(d) => d && onDataRenegociacao(d)}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </CardContent>
       </Card>

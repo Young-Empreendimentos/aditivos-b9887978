@@ -18,6 +18,7 @@ const Index = () => {
   const [reportFile, setReportFile] = useState<File | null>(null);
   const [taxaJuros, setTaxaJuros] = useState(0);
   const [custosAdicionais, setCustosAdicionais] = useState(0);
+  const [dataRenegociacao, setDataRenegociacao] = useState<Date | null>(null);
   const [parcelas, setParcelas] = useState<Parcela[]>([]);
 
   // Step 2 state
@@ -76,10 +77,12 @@ const Index = () => {
             reportFile={reportFile}
             taxaJuros={taxaJuros}
             custosAdicionais={custosAdicionais}
+            dataRenegociacao={dataRenegociacao}
             onTemplateFile={setTemplateFile}
             onReportFile={setReportFile}
             onTaxaJuros={setTaxaJuros}
             onCustosAdicionais={setCustosAdicionais}
+            onDataRenegociacao={setDataRenegociacao}
             onNext={handleStep1Next}
           />
         )}
@@ -101,6 +104,7 @@ const Index = () => {
             selectedIds={selectedIds}
             taxaJuros={taxaJuros}
             custosAdicionais={custosAdicionais}
+            dataRenegociacao={dataRenegociacao!}
             numParcelas={numParcelas}
             startDate={startDate}
             reforcos={reforcos}
@@ -118,6 +122,7 @@ const Index = () => {
             templateFile={templateFile}
             allParcelas={parcelas}
             selectedParcelas={selectedParcelas}
+            selectedIds={selectedIds}
             novasParcelas={novasParcelas}
             taxaJuros={taxaJuros}
             custosAdicionais={custosAdicionais}

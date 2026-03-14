@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { calculatePMT, generateNovasParcelas, calcularTotalPVReforcos } from '@/lib/financial';
+import { calculatePMT, generateNovasParcelas, calcularTotalPVReforcos, capitalizarParcelaParaDataBase } from '@/lib/financial';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
 import type { Parcela, NovaParcela, Reforco } from '@/types/contract';
 import { toast } from 'sonner';
@@ -22,6 +22,7 @@ interface Step3Props {
   selectedIds: Set<number>;
   taxaJuros: number;
   custosAdicionais: number;
+  dataRenegociacao: Date;
   numParcelas: number;
   startDate: Date | null;
   reforcos: Reforco[];
@@ -34,7 +35,7 @@ interface Step3Props {
 }
 
 export function Step3({
-  parcelas, selectedParcelas, selectedIds, taxaJuros, custosAdicionais, numParcelas, startDate, reforcos,
+  parcelas, selectedParcelas, selectedIds, taxaJuros, custosAdicionais, dataRenegociacao, numParcelas, startDate, reforcos,
   onNumParcelas, onStartDate, onReforcos, onSimulationResult, onNext, onBack
 }: Step3Props) {
 
@@ -47,14 +48,18 @@ export function Step3({
     [parcelas, selectedIds]
   );
 
+  // PV bruto = soma dos saldos capitalizados até a data da renegociação + custos
   const pvBruto = useMemo(
-    () => selectedParcelas.reduce((s, p) => s + p.saldoAtual, 0) + custosAdicionais,
-    [selectedParcelas, custosAdicionais]
+    () => selectedParcelas.reduce((s, p) => 
+      s + capitalizarParcelaParaDataBase(p.saldoAtual, p.dataVencimento, dataRenegociacao, taxaJuros), 0
+    ) + custosAdicionais,
+    [selectedParcelas, custosAdicionais, dataRenegociacao, taxaJuros]
   );
 
+  // VP dos reforços descontados até a data da renegociação
   const totalPVReforcos = useMemo(
-    () => startDate ? calcularTotalPVReforcos(reforcos, startDate, taxaJuros) : 0,
-    [reforcos, startDate, taxaJuros]
+    () => calcularTotalPVReforcos(reforcos, dataRenegociacao, taxaJuros),
+    [reforcos, dataRenegociacao, taxaJuros]
   );
 
   const pvTotal = Math.max(0, pvBruto - totalPVReforcos);
@@ -74,8 +79,8 @@ export function Step3({
   const quadro2Completo = useMemo(() => {
     const items: NovaParcela[] = [];
 
-    // Parcelas mantidas (não renegociadas)
-    parcelasMantidas.forEach(p => {
+    // Parcelas mantidas (não renegociadas e não pagas)
+    parcelasMantidas.filter(p => p.saldoAtual > 0).forEach(p => {
       items.push({
         numero: 0,
         dataVencimento: p.dataVencimento,
@@ -282,8 +287,8 @@ export function Step3({
                   <div className="flex items-center gap-4">
                     <span className="tabular-nums">{format(r.data, 'dd/MM/yyyy', { locale: ptBR })}</span>
                     <span className="font-semibold tabular-nums">{formatCurrency(r.valor)}</span>
-                    {startDate && (() => {
-                      const dias = Math.max(0, Math.round((r.data.getTime() - startDate.getTime()) / 86400000));
+                    {(() => {
+                      const dias = Math.max(0, Math.round((r.data.getTime() - dataRenegociacao.getTime()) / 86400000));
                       const iMensal = taxaJuros / 100;
                       const iDiaria = Math.pow(1 + iMensal, 1 / 30) - 1;
                       const vp = (iMensal === 0 || dias === 0) ? r.valor : r.valor / Math.pow(1 + iDiaria, dias);

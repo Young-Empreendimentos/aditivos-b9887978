@@ -27,8 +27,28 @@ export function calcularPVReforco(reforco: Reforco, startDate: Date, monthlyRate
   return reforco.valor / Math.pow(1 + iDiaria, dias);
 }
 
-export function calcularTotalPVReforcos(reforcos: Reforco[], startDate: Date, monthlyRate: number): number {
-  return reforcos.reduce((sum, r) => sum + calcularPVReforco(r, startDate, monthlyRate), 0);
+export function calcularTotalPVReforcos(reforcos: Reforco[], baseDate: Date, monthlyRate: number): number {
+  return reforcos.reduce((sum, r) => sum + calcularPVReforco(r, baseDate, monthlyRate), 0);
+}
+
+/**
+ * Capitaliza uma parcela vencida/a vencer até a data base da renegociação.
+ * FV = saldoAtual × (1 + i_diária)^dias
+ * Se a parcela é posterior à data base, desconta (dias negativo → divisão).
+ */
+export function capitalizarParcelaParaDataBase(
+  saldoAtual: number,
+  dataVencimento: Date,
+  dataBase: Date,
+  monthlyRate: number
+): number {
+  if (monthlyRate === 0 || saldoAtual === 0) return saldoAtual;
+  const diffMs = dataBase.getTime() - dataVencimento.getTime();
+  const dias = Math.round(diffMs / 86400000);
+  if (dias === 0) return saldoAtual;
+  const iMensal = monthlyRate / 100;
+  const iDiaria = Math.pow(1 + iMensal, 1 / 30) - 1;
+  return saldoAtual * Math.pow(1 + iDiaria, dias);
 }
 
 export function generateNovasParcelas(
