@@ -16,10 +16,12 @@ interface Step1Props {
   reportFile: File | null;
   taxaJuros: number;
   custosAdicionais: number;
+  dataRenegociacao: Date | null;
   onTemplateFile: (f: File) => void;
   onReportFile: (f: File) => void;
   onTaxaJuros: (v: number) => void;
   onCustosAdicionais: (v: number) => void;
+  onDataRenegociacao: (d: Date) => void;
   onNext: () => void;
 }
 
