@@ -50,7 +50,7 @@ export async function parseReportFile(file: File): Promise<Parcela[]> {
     const dataIdx = cells.findIndex((c: string) => c.includes('data vencto') || c.includes('data venc') || c.includes('vencimento'));
     const parIdx = cells.findIndex((c: string) => c === 'par' || c.includes('parcela'));
     const tipoIdx = cells.findIndex((c: string) => c.includes('tipo cond') || c.includes('condição') || c.includes('condicao'));
-    const vlrOrigIdx = cells.findIndex((c: string) => c.includes('valor original') || c.includes('vlr original'));
+    const vlrOrigIdx = cells.findIndex((c: string) => c.includes('valor original') || c.includes('vlr original') || c.includes('vl. original'));
     const saldoIdx = cells.findIndex((c: string) => c.includes('valor devido') || c.includes('saldo atual') || c.includes('saldo'));
 
     if (dataIdx >= 0 && saldoIdx >= 0) {
