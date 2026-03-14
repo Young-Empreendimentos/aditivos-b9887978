@@ -5,6 +5,7 @@ import { ArrowLeft, Download, FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
 import { generateDocx, downloadDocx, generateAndDownloadPdf } from '@/lib/documentGenerator';
 import type { Parcela, NovaParcela } from '@/types/contract';
@@ -12,6 +13,7 @@ import { toast } from 'sonner';
 
 interface Step4Props {
   templateFile: File | null;
+  allParcelas: Parcela[];
   selectedParcelas: Parcela[];
   novasParcelas: NovaParcela[];
   taxaJuros: number;
@@ -24,19 +26,22 @@ interface Step4Props {
 }
 
 export function Step4({
-  templateFile, selectedParcelas, novasParcelas,
+  templateFile, allParcelas, selectedParcelas, novasParcelas,
   taxaJuros, custosAdicionais, pvTotal, totalJuros, valorTotalRenegociado, pmtValue, onBack
 }: Step4Props) {
   const [generating, setGenerating] = useState(false);
 
+  // Quadro 1: todas as parcelas (exceto entrada)
+  const quadro1 = allParcelas.filter(p => !p.isEntrada);
+
   const handleGenerateDocx = async () => {
     if (!templateFile) {
-      toast.error('Nenhum modelo .docx foi fornecido. O documento não pode ser gerado sem um template.');
+      toast.error('Nenhum modelo .docx foi fornecido.');
       return;
     }
     setGenerating(true);
     try {
-      const blob = await generateDocx(templateFile, selectedParcelas, novasParcelas, taxaJuros, custosAdicionais, valorTotalRenegociado);
+      const blob = await generateDocx(templateFile, quadro1, novasParcelas, taxaJuros, custosAdicionais, valorTotalRenegociado);
       downloadDocx(blob, 'aditivo_contratual.docx');
       toast.success('Documento .docx gerado com sucesso!');
     } catch (err: any) {
@@ -49,7 +54,7 @@ export function Step4({
   const handleGeneratePdf = async () => {
     setGenerating(true);
     try {
-      await generateAndDownloadPdf(selectedParcelas, novasParcelas, taxaJuros, custosAdicionais, valorTotalRenegociado, pvTotal, 'aditivo_contratual.pdf');
+      await generateAndDownloadPdf(quadro1, novasParcelas, taxaJuros, custosAdicionais, valorTotalRenegociado, pvTotal, 'aditivo_contratual.pdf');
       toast.success('PDF gerado com sucesso!');
     } catch (err: any) {
       toast.error(`Erro ao gerar PDF: ${err.message}`);
@@ -91,7 +96,7 @@ export function Step4({
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Quadro 1 — Parcelas Originais</CardTitle>
+            <CardTitle className="text-base">Quadro 1 — Todas as Parcelas a Vencer</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="max-h-[300px] overflow-auto">
@@ -104,7 +109,7 @@ export function Step4({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {selectedParcelas.map((p) => (
+                  {quadro1.map((p) => (
                     <TableRow key={p.rowIndex}>
                       <TableCell className="tabular-nums font-medium">{String(p.numero).padStart(2, '0')}</TableCell>
                       <TableCell className="tabular-nums">{format(p.dataVencimento, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
@@ -128,15 +133,20 @@ export function Step4({
                   <TableRow className="bg-muted/50">
                     <TableHead className="w-16">Nº</TableHead>
                     <TableHead>Vencimento</TableHead>
-                    <TableHead className="text-right">Nova Parcela</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                    <TableHead className="w-20">Tipo</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {novasParcelas.map((p) => (
-                    <TableRow key={p.numero}>
+                    <TableRow key={`${p.tipo}-${p.numero}`} className={p.tipo === 'reforco' ? 'bg-accent/30' : p.tipo === 'mantida' ? 'bg-muted/30' : ''}>
                       <TableCell className="tabular-nums font-medium">{String(p.numero).padStart(2, '0')}</TableCell>
                       <TableCell className="tabular-nums">{format(p.dataVencimento, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatCurrency(p.valor)}</TableCell>
+                      <TableCell>
+                        {p.tipo === 'reforco' && <Badge variant="secondary" className="text-xs">Ref.</Badge>}
+                        {p.tipo === 'mantida' && <Badge variant="outline" className="text-xs">Mant.</Badge>}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

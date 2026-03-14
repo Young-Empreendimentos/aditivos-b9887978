@@ -23,10 +23,10 @@ function buildQuadro1Text(parcelas: Parcela[]): string {
 }
 
 function buildQuadro2Text(parcelas: NovaParcela[]): string {
-  const header = 'Nº Parcela | Data Vencimento | Valor da Nova Parcela';
-  const separator = '-'.repeat(55);
+  const header = 'Nº Parcela | Data Vencimento | Valor | Tipo';
+  const separator = '-'.repeat(60);
   const rows = parcelas.map(
-    (p) => `${String(p.numero).padStart(2, '0')} | ${formatDate(p.dataVencimento)} | ${formatCurrency(p.valor)}`
+    (p) => `${String(p.numero).padStart(2, '0')} | ${formatDate(p.dataVencimento)} | ${formatCurrency(p.valor)} | ${p.tipo === 'reforco' ? 'Reforço' : p.tipo === 'mantida' ? 'Mantida' : 'Nova'}`
   );
   return [header, separator, ...rows].join('\n');
 }
@@ -112,12 +112,14 @@ export async function generateAndDownloadPdf(
       <thead><tr style="background:#f0f0f5;">
         <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">Nº</th>
         <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">Data Vencimento</th>
-        <th style="padding:6px 8px;border:1px solid #ddd;text-align:right;">Valor da Nova Parcela</th>
+        <th style="padding:6px 8px;border:1px solid #ddd;text-align:right;">Valor</th>
+        <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">Tipo</th>
       </tr></thead>
       <tbody>${novasParcelas.map(p => `<tr>
         <td style="padding:4px 8px;border:1px solid #ddd;">${String(p.numero).padStart(2, '0')}</td>
         <td style="padding:4px 8px;border:1px solid #ddd;">${formatDate(p.dataVencimento)}</td>
         <td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${formatCurrency(p.valor)}</td>
+        <td style="padding:4px 8px;border:1px solid #ddd;">${p.tipo === 'reforco' ? 'Reforço' : p.tipo === 'mantida' ? 'Mantida' : 'Nova'}</td>
       </tr>`).join('')}</tbody>
     </table>
   `;

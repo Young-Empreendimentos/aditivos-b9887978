@@ -1,5 +1,5 @@
-import type { NovaParcela } from '@/types/contract';
-import { addMonths } from 'date-fns';
+import type { NovaParcela, Reforco } from '@/types/contract';
+import { addMonths, differenceInMonths } from 'date-fns';
 
 /**
  * PMT = PV × [i(1+i)^n] / [(1+i)^n - 1]
@@ -13,6 +13,21 @@ export function calculatePMT(pv: number, monthlyRate: number, n: number): number
   return pv * (i * factor) / (factor - 1);
 }
 
+/**
+ * Calcula o valor presente de um reforço.
+ * PV_reforço = valor / (1+i)^t, onde t = meses entre startDate e data do reforço
+ */
+export function calcularPVReforco(reforco: Reforco, startDate: Date, monthlyRate: number): number {
+  const t = Math.max(0, differenceInMonths(reforco.data, startDate));
+  if (monthlyRate === 0 || t === 0) return reforco.valor;
+  const i = monthlyRate / 100;
+  return reforco.valor / Math.pow(1 + i, t);
+}
+
+export function calcularTotalPVReforcos(reforcos: Reforco[], startDate: Date, monthlyRate: number): number {
+  return reforcos.reduce((sum, r) => sum + calcularPVReforco(r, startDate, monthlyRate), 0);
+}
+
 export function generateNovasParcelas(
   pmt: number,
   n: number,
@@ -24,6 +39,7 @@ export function generateNovasParcelas(
       numero: k + 1,
       dataVencimento: addMonths(startDate, k),
       valor: Math.round(pmt * 100) / 100,
+      tipo: 'nova',
     });
   }
   return parcelas;
