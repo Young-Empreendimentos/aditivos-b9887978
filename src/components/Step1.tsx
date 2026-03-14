@@ -39,6 +39,10 @@ export function Step1({
       toast.error('Informe uma taxa de juros válida (entre 0 e 100%)');
       return;
     }
+    if (!dataRenegociacao) {
+      toast.error('Informe a data da renegociação');
+      return;
+    }
     onNext();
   };
 

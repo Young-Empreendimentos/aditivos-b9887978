@@ -104,6 +104,7 @@ const Index = () => {
             selectedIds={selectedIds}
             taxaJuros={taxaJuros}
             custosAdicionais={custosAdicionais}
+            dataRenegociacao={dataRenegociacao!}
             numParcelas={numParcelas}
             startDate={startDate}
             reforcos={reforcos}
