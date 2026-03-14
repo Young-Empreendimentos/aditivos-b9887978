@@ -79,8 +79,8 @@ export function Step3({
   const quadro2Completo = useMemo(() => {
     const items: NovaParcela[] = [];
 
-    // Parcelas mantidas (não renegociadas)
-    parcelasMantidas.forEach(p => {
+    // Parcelas mantidas (não renegociadas e não pagas)
+    parcelasMantidas.filter(p => p.saldoAtual > 0).forEach(p => {
       items.push({
         numero: 0,
         dataVencimento: p.dataVencimento,

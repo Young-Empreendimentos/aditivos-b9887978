@@ -27,13 +27,13 @@ interface Step4Props {
 }
 
 export function Step4({
-  templateFile, allParcelas, selectedParcelas, novasParcelas,
+  templateFile, allParcelas, selectedParcelas, selectedIds, novasParcelas,
   taxaJuros, custosAdicionais, pvTotal, totalJuros, valorTotalRenegociado, pmtValue, onBack
 }: Step4Props) {
   const [generating, setGenerating] = useState(false);
 
-  // Quadro 1: todas as parcelas (exceto entrada)
-  const quadro1 = allParcelas.filter(p => !p.isEntrada);
+  // Quadro 1: parcelas selecionadas para renegociação + não pagas (saldo > 0), exceto entrada
+  const quadro1 = allParcelas.filter(p => !p.isEntrada && (selectedIds.has(p.rowIndex) || p.saldoAtual > 0));
 
   const handleGenerateDocx = async () => {
     if (!templateFile) {
