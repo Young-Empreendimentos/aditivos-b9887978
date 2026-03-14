@@ -122,6 +122,7 @@ const Index = () => {
             templateFile={templateFile}
             allParcelas={parcelas}
             selectedParcelas={selectedParcelas}
+            selectedIds={selectedIds}
             novasParcelas={novasParcelas}
             taxaJuros={taxaJuros}
             custosAdicionais={custosAdicionais}
