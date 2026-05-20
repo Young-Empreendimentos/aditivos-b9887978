@@ -9,10 +9,10 @@ import { Step4 } from '@/components/Step4';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { parseReportFile } from '@/lib/parseReport';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermission, ROLE_LABELS } from '@/hooks/usePermission';
 import type { Parcela, NovaParcela, Reforco } from '@/types/contract';
+import type { ClienteSienge, ContratoSienge } from '@/lib/sienge';
 import { toast } from 'sonner';
 
 const STEPS = ['Dados', 'Seleção', 'Simulação', 'Revisão'];
@@ -40,11 +40,12 @@ const GeradorAditivo = () => {
 
   // Step 1 state
   const [templateFile, setTemplateFile] = useState<File | null>(null);
-  const [reportFile, setReportFile] = useState<File | null>(null);
   const [taxaJuros, setTaxaJuros] = useState(0);
   const [custosAdicionais, setCustosAdicionais] = useState(0);
   const [dataRenegociacao, setDataRenegociacao] = useState<Date | null>(null);
   const [parcelas, setParcelas] = useState<Parcela[]>([]);
+  const [selectedCliente, setSelectedCliente] = useState<ClienteSienge | null>(null);
+  const [selectedContrato, setSelectedContrato] = useState<ContratoSienge | null>(null);
 
   // Step 2 state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -64,16 +65,10 @@ const GeradorAditivo = () => {
     [parcelas, selectedIds]
   );
 
-  const handleStep1Next = useCallback(async () => {
-    if (!reportFile) return;
-    try {
-      const parsed = await parseReportFile(reportFile);
-      setParcelas(parsed);
-      setCurrentStep(2);
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  }, [reportFile]);
+  const handleStep1Next = useCallback(() => {
+    setSelectedIds(new Set());
+    setCurrentStep(2);
+  }, []);
 
   const handleSimulationResult = useCallback(
     (np: NovaParcela[], pv: number, pmt: number, tj: number, tr: number) => {
@@ -135,15 +130,19 @@ const GeradorAditivo = () => {
         {currentStep === 1 && (
           <Step1
             templateFile={templateFile}
-            reportFile={reportFile}
             taxaJuros={taxaJuros}
             custosAdicionais={custosAdicionais}
             dataRenegociacao={dataRenegociacao}
+            selectedCliente={selectedCliente}
+            selectedContrato={selectedContrato}
+            parcelas={parcelas}
             onTemplateFile={setTemplateFile}
-            onReportFile={setReportFile}
             onTaxaJuros={setTaxaJuros}
             onCustosAdicionais={setCustosAdicionais}
             onDataRenegociacao={setDataRenegociacao}
+            onClienteSelect={setSelectedCliente}
+            onContratoSelect={setSelectedContrato}
+            onParcelasLoaded={setParcelas}
             onNext={handleStep1Next}
           />
         )}
