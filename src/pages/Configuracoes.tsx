@@ -21,7 +21,7 @@ import {
   getConfiguracao,
   upsertConfiguracao,
   uploadTemplate,
-  deleteTemplate,
+  
   type ConfiguracaoEmpresa,
 } from '@/lib/configuracoes';
 
@@ -252,7 +252,7 @@ export default function Configuracoes() {
                   </TableRow>
                 )}
                 {rows.map((r) => {
-                  const configured = !!r.templateBase64;
+                  const configured = !!(r.templateUrl || r.templateBase64 || r.pendingFile);
                   return (
                     <TableRow key={r.company_id}>
                       <TableCell className="font-medium align-top">
