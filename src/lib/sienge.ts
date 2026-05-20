@@ -57,7 +57,7 @@ export async function searchClientes(term: string, companyId?: string): Promise<
     .from("sienge_parcelas_receber")
     .select("client_id, client_name")
     .ilike("client_name", `%${term.trim()}%`)
-    .neq("payment_status", "paid")
+    .gt("current_balance", 0)
     .limit(500);
   if (companyId) query = query.eq("company_id", companyId);
   const { data, error } = await query;
@@ -78,7 +78,7 @@ export async function listContratosByCliente(clientId: string, companyId?: strin
       "bill_id, bill_document, client_id, client_name, company_id, company_name, business_area_name, main_unit, issue_date",
     )
     .eq("client_id", clientId)
-    .neq("payment_status", "paid")
+    .gt("current_balance", 0)
     .limit(5000);
   if (companyId) query = query.eq("company_id", companyId);
   const { data, error } = await query;
@@ -115,7 +115,7 @@ export async function listParcelasByContrato(billId: string, billDocument: strin
     .from("sienge_parcelas_receber")
     .select("*")
     .eq("bill_id", billId)
-    .neq("payment_status", "paid")
+    .gt("current_balance", 0)
     .order("due_date", { ascending: true })
     .limit(5000);
   if (billDocument) query = query.eq("bill_document", billDocument);
