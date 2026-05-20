@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { db, auth } from './firebase';
 
 export interface ConfiguracaoEmpresa {
