@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FileUploadZone } from '@/components/FileUploadZone';
@@ -7,32 +8,160 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ArrowRight, CalendarIcon } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ArrowRight, CalendarIcon, Search, Loader2, Check, FileText, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import {
+  searchClientes,
+  listContratosByCliente,
+  listParcelasByContrato,
+  type ClienteSienge,
+  type ContratoSienge,
+  type SiengeParcelaRow,
+} from '@/lib/sienge';
+import type { Parcela } from '@/types/contract';
+import { formatCurrency } from '@/lib/formatters';
 
 interface Step1Props {
   templateFile: File | null;
-  reportFile: File | null;
   taxaJuros: number;
   custosAdicionais: number;
   dataRenegociacao: Date | null;
+  selectedCliente: ClienteSienge | null;
+  selectedContrato: ContratoSienge | null;
+  parcelas: Parcela[];
   onTemplateFile: (f: File) => void;
-  onReportFile: (f: File) => void;
   onTaxaJuros: (v: number) => void;
   onCustosAdicionais: (v: number) => void;
   onDataRenegociacao: (d: Date) => void;
+  onClienteSelect: (c: ClienteSienge | null) => void;
+  onContratoSelect: (c: ContratoSienge | null) => void;
+  onParcelasLoaded: (p: Parcela[]) => void;
   onNext: () => void;
 }
 
+function mapRowsToParcelas(rows: SiengeParcelaRow[]): Parcela[] {
+  const parcelas: Parcela[] = rows
+    .map((r, idx) => {
+      const due = r.due_date ? new Date(r.due_date) : null;
+      if (!due || isNaN(due.getTime())) return null;
+      return {
+        rowIndex: idx,
+        numero: 0,
+        dataVencimento: due,
+        parcelaOriginal: r.installment_number != null ? String(r.installment_number) : '',
+        tipoCondicao: '',
+        valorOriginal: Number(r.original_amount ?? 0),
+        saldoAtual: Number(r.current_balance ?? 0),
+        isEntrada: false,
+      } as Parcela;
+    })
+    .filter((p): p is Parcela => p !== null);
+
+  parcelas.sort((a, b) => a.dataVencimento.getTime() - b.dataVencimento.getTime());
+  if (parcelas.length > 0) {
+    parcelas[0].isEntrada = true;
+    parcelas[0].numero = 0;
+    let n = 1;
+    for (let i = 1; i < parcelas.length; i++) parcelas[i].numero = n++;
+  }
+  return parcelas;
+}
+
 export function Step1({
-  templateFile, reportFile, taxaJuros, custosAdicionais, dataRenegociacao,
-  onTemplateFile, onReportFile, onTaxaJuros, onCustosAdicionais, onDataRenegociacao, onNext
+  templateFile,
+  taxaJuros,
+  custosAdicionais,
+  dataRenegociacao,
+  selectedCliente,
+  selectedContrato,
+  parcelas,
+  onTemplateFile,
+  onTaxaJuros,
+  onCustosAdicionais,
+  onDataRenegociacao,
+  onClienteSelect,
+  onContratoSelect,
+  onParcelasLoaded,
+  onNext,
 }: Step1Props) {
+  const [searchTerm, setSearchTerm] = useState(selectedCliente?.client_name ?? '');
+  const [clientes, setClientes] = useState<ClienteSienge[]>([]);
+  const [loadingClientes, setLoadingClientes] = useState(false);
+  const [contratos, setContratos] = useState<ContratoSienge[]>([]);
+  const [loadingContratos, setLoadingContratos] = useState(false);
+  const [loadingParcelas, setLoadingParcelas] = useState(false);
+
+  // Debounced client search
+  useEffect(() => {
+    if (selectedCliente) return;
+    const term = searchTerm.trim();
+    if (term.length < 3) {
+      setClientes([]);
+      return;
+    }
+    const handle = setTimeout(async () => {
+      setLoadingClientes(true);
+      try {
+        const res = await searchClientes(term);
+        setClientes(res);
+      } catch (err: any) {
+        toast.error(err?.message ?? 'Erro ao buscar clientes');
+      } finally {
+        setLoadingClientes(false);
+      }
+    }, 350);
+    return () => clearTimeout(handle);
+  }, [searchTerm, selectedCliente]);
+
+  const handleSelectCliente = async (c: ClienteSienge) => {
+    onClienteSelect(c);
+    onContratoSelect(null);
+    onParcelasLoaded([]);
+    setContratos([]);
+    setSearchTerm(c.client_name);
+    setLoadingContratos(true);
+    try {
+      const list = await listContratosByCliente(c.client_id);
+      setContratos(list);
+      if (list.length === 0) toast.info('Nenhum contrato em aberto para este cliente.');
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Erro ao carregar contratos');
+    } finally {
+      setLoadingContratos(false);
+    }
+  };
+
+  const handleSelectContrato = async (c: ContratoSienge) => {
+    onContratoSelect(c);
+    onParcelasLoaded([]);
+    setLoadingParcelas(true);
+    try {
+      const rows = await listParcelasByContrato(c.bill_id, c.bill_document);
+      const mapped = mapRowsToParcelas(rows);
+      onParcelasLoaded(mapped);
+      if (mapped.length === 0) toast.info('Nenhuma parcela em aberto neste contrato.');
+      else toast.success(`${mapped.length} parcela(s) carregada(s).`);
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Erro ao carregar parcelas');
+    } finally {
+      setLoadingParcelas(false);
+    }
+  };
+
+  const resetCliente = () => {
+    onClienteSelect(null);
+    onContratoSelect(null);
+    onParcelasLoaded([]);
+    setContratos([]);
+    setClientes([]);
+    setSearchTerm('');
+  };
 
   const handleNext = () => {
-    if (!reportFile) {
-      toast.error('Faça upload do relatório de contas a receber (.xlsx)');
+    if (!selectedContrato || parcelas.length === 0) {
+      toast.error('Selecione um cliente e um contrato com parcelas em aberto.');
       return;
     }
     if (taxaJuros <= 0 || taxaJuros > 100) {
@@ -47,25 +176,146 @@ export function Step1({
   };
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6 max-w-3xl mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Arquivos</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <User className="h-4 w-4" /> Cliente
+          </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="space-y-3">
+          {selectedCliente ? (
+            <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Check className="h-4 w-4 text-primary" />
+                <span className="font-medium">{selectedCliente.client_name}</span>
+                <Badge variant="outline" className="text-[10px]">ID {selectedCliente.client_id}</Badge>
+              </div>
+              <Button variant="ghost" size="sm" onClick={resetCliente}>Trocar</Button>
+            </div>
+          ) : (
+            <>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Digite o nome do cliente (mínimo 3 caracteres)..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+                {loadingClientes && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
+              {searchTerm.trim().length >= 3 && !loadingClientes && (
+                <div className="max-h-64 overflow-y-auto rounded-md border divide-y">
+                  {clientes.length === 0 ? (
+                    <p className="px-3 py-4 text-sm text-muted-foreground text-center">
+                      Nenhum cliente encontrado.
+                    </p>
+                  ) : (
+                    clientes.map((c) => (
+                      <button
+                        key={c.client_id}
+                        onClick={() => handleSelectCliente(c)}
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 transition-colors flex items-center justify-between"
+                      >
+                        <span>{c.client_name}</span>
+                        <span className="text-xs text-muted-foreground">#{c.client_id}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {selectedCliente && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <FileText className="h-4 w-4" /> Contrato
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingContratos ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                <Loader2 className="h-4 w-4 animate-spin" /> Carregando contratos...
+              </div>
+            ) : contratos.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2">Nenhum contrato em aberto.</p>
+            ) : (
+              <div className="space-y-2">
+                {contratos.map((c) => {
+                  const key = `${c.bill_id}__${c.bill_document}`;
+                  const active =
+                    selectedContrato &&
+                    selectedContrato.bill_id === c.bill_id &&
+                    selectedContrato.bill_document === c.bill_document;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => handleSelectContrato(c)}
+                      className={cn(
+                        'w-full text-left rounded-md border px-3 py-2.5 text-sm transition-colors',
+                        active ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          {active && <Check className="h-4 w-4 text-primary" />}
+                          <span className="font-medium">
+                            {c.bill_document || `Bill ${c.bill_id}`}
+                          </span>
+                          {c.main_unit && (
+                            <Badge variant="outline" className="text-[10px]">Unid. {c.main_unit}</Badge>
+                          )}
+                        </div>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {c.parcelasCount} parc. em aberto
+                        </Badge>
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground flex flex-wrap gap-x-3">
+                        {c.business_area_name && <span>{c.business_area_name}</span>}
+                        {c.company_name && <span>· {c.company_name}</span>}
+                        <span>· Bill ID {c.bill_id}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {loadingParcelas && (
+              <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Carregando parcelas...
+              </div>
+            )}
+            {!loadingParcelas && parcelas.length > 0 && (
+              <div className="mt-3 rounded-md border bg-muted/30 px-3 py-2 text-sm flex items-center justify-between">
+                <span className="text-muted-foreground">Parcelas carregadas</span>
+                <span className="font-medium tabular-nums">
+                  {parcelas.length} · saldo total{' '}
+                  {formatCurrency(parcelas.reduce((s, p) => s + p.saldoAtual, 0))}
+                </span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Modelo do Aditivo</CardTitle>
+        </CardHeader>
+        <CardContent>
           <FileUploadZone
             accept=".docx"
             label="Upload do Modelo (.docx)"
             description="Modelo com placeholders {{QUADRO_1}}, {{QUADRO_2}}, etc."
             file={templateFile}
             onFileSelect={onTemplateFile}
-          />
-          <FileUploadZone
-            accept=".xlsx,.xls"
-            label="Upload do Relatório (.xlsx)"
-            description="Relatório de contas a receber"
-            file={reportFile}
-            onFileSelect={onReportFile}
           />
         </CardContent>
       </Card>
