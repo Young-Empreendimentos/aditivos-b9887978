@@ -251,6 +251,10 @@ export function Step1({
       toast.error('Selecione a empresa.');
       return;
     }
+    if (configMissing || !templateFile) {
+      toast.error('Esta empresa não possui modelo de aditivo configurado.');
+      return;
+    }
     if (!selectedContrato || parcelas.length === 0) {
       toast.error('Selecione um cliente e um contrato com parcelas em aberto.');
       return;
@@ -265,6 +269,9 @@ export function Step1({
     }
     onNext();
   };
+
+  const nextDisabled = !selectedEmpresaId || configMissing || !templateFile || loadingConfig;
+
 
   const selectedEmpresa = empresas.find((e) => e.company_id === selectedEmpresaId);
 
