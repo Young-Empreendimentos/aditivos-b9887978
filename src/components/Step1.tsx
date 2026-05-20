@@ -283,7 +283,7 @@ export function Step1({
             <Building2 className="h-4 w-4" /> Empresa
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <Select
             value={selectedEmpresaId}
             onValueChange={handleEmpresaChange}
@@ -302,7 +302,32 @@ export function Step1({
               ))}
             </SelectContent>
           </Select>
+
+          {selectedEmpresaId && loadingConfig && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando configuração da empresa…
+            </div>
+          )}
+
+          {selectedEmpresaId && !loadingConfig && configTemplateName && (
+            <div className="flex items-center gap-2 rounded-md border border-emerald-600/30 bg-emerald-600/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
+              <FileCheck2 className="h-4 w-4 shrink-0" />
+              <span className="truncate">
+                Modelo carregado: <span className="font-medium">{configTemplateName}</span>
+              </span>
+            </div>
+          )}
+
+          {selectedEmpresaId && !loadingConfig && configMissing && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                Nenhum modelo configurado para esta empresa. Contate o administrador.
+              </span>
+            </div>
+          )}
         </CardContent>
+
       </Card>
 
       <Card className={cn(!selectedEmpresaId && 'opacity-60')}>
