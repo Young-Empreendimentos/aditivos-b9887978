@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
-import { LogOut } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { LogOut, Settings } from 'lucide-react';
 import { Stepper } from '@/components/Stepper';
 import { Step1 } from '@/components/Step1';
 import { Step2 } from '@/components/Step2';
@@ -105,6 +106,14 @@ const Index = () => {
                   </Badge>
                 </div>
               </div>
+            )}
+            {isCoordinator && (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/configuracoes">
+                  <Settings className="h-4 w-4" />
+                  <span className="hidden sm:inline">Configurações</span>
+                </Link>
+              </Button>
             )}
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
