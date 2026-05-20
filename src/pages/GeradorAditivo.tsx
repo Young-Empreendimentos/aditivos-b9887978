@@ -23,7 +23,7 @@ const ROLE_BADGE_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = 
   common: 'outline',
 };
 
-const Index = () => {
+const GeradorAditivo = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const { user, logout } = useAuth();
   const { role, isAdmin, isCoordinator } = usePermission();
