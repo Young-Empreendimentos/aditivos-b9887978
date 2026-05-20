@@ -20,33 +20,40 @@ import { listEmpresas, type EmpresaSienge } from '@/lib/sienge';
 import {
   getConfiguracao,
   upsertConfiguracao,
-  uploadTemplate,
-  
   type ConfiguracaoEmpresa,
 } from '@/lib/configuracoes';
-
-
 
 interface Row {
   company_id: string;
   company_name: string;
-  taxaJuros: string; // editable text
+  taxaJuros: string;
   originalTaxa: number;
-  templateUrl?: string;
-  templatePath?: string;
-  templateBase64?: string; // legado
+  templateBase64?: string;
   templateName?: string;
   templateSize?: number;
-  pendingFile?: File | null; // novo arquivo a enviar no save
+  pendingFile?: File | null;
   dirty: boolean;
   saving: boolean;
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const comma = result.indexOf(',');
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 export default function Configuracoes() {
   const { user } = useAuth();
   const { isAdmin, isCoordinator, role } = usePermission();
   const canEditTaxa = isAdmin;
-  const canEditTemplate = isCoordinator; // includes admin
+  const canEditTemplate = isCoordinator;
   const readOnly = !canEditTaxa && !canEditTemplate;
 
   const [rows, setRows] = useState<Row[]>([]);
@@ -69,8 +76,6 @@ export default function Configuracoes() {
             company_name: e.company_name,
             taxaJuros: String(cfg?.taxaJuros ?? 0),
             originalTaxa: Number(cfg?.taxaJuros ?? 0),
-            templateUrl: cfg?.templateUrl,
-            templatePath: cfg?.templatePath,
             templateBase64: cfg?.templateBase64,
             templateName: cfg?.templateName,
             templateSize: cfg?.templateSize,
@@ -113,10 +118,6 @@ export default function Configuracoes() {
       let blob: Blob | null = null;
       if (r.pendingFile) {
         blob = r.pendingFile;
-      } else if (r.templateUrl) {
-        const res = await fetch(r.templateUrl);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        blob = await res.blob();
       } else if (r.templateBase64) {
         const binary = atob(r.templateBase64);
         const bytes = new Uint8Array(binary.length);
@@ -146,27 +147,23 @@ export default function Configuracoes() {
     }
     setRows((prev) => prev.map((x) => (x.company_id === r.company_id ? { ...x, saving: true } : x)));
     try {
-      let templateUrl = r.templateUrl;
-      let templatePath = r.templatePath;
-      // legacy base64 ainda preservado apenas se ainda não tiver migrado
-      let templateBase64: string | undefined = r.templateBase64;
+      let templateBase64 = r.templateBase64;
+      let templateName = r.templateName;
+      let templateSize = r.templateSize;
 
       if (r.pendingFile) {
-        const up = await uploadTemplate(r.company_id, r.pendingFile);
-        templateUrl = up.url;
-        templatePath = up.path;
-        templateBase64 = undefined; // descarta legado depois do upload
+        templateBase64 = await fileToBase64(r.pendingFile);
+        templateName = r.pendingFile.name;
+        templateSize = r.pendingFile.size;
       }
 
       await upsertConfiguracao({
         company_id: r.company_id,
         company_name: r.company_name,
         taxaJuros: taxa,
-        templateUrl,
-        templatePath,
         templateBase64,
-        templateName: r.templateName,
-        templateSize: r.templateSize,
+        templateName,
+        templateSize,
         updatedBy: user?.email ?? null,
       });
       toast.success(`Configuração salva: ${r.company_name}`);
@@ -178,9 +175,9 @@ export default function Configuracoes() {
                 saving: false,
                 dirty: false,
                 originalTaxa: taxa,
-                templateUrl,
-                templatePath,
                 templateBase64,
+                templateName,
+                templateSize,
                 pendingFile: null,
               }
             : x
@@ -252,7 +249,7 @@ export default function Configuracoes() {
                   </TableRow>
                 )}
                 {rows.map((r) => {
-                  const configured = !!(r.templateUrl || r.templateBase64 || r.pendingFile);
+                  const configured = !!(r.templateBase64 || r.pendingFile);
                   return (
                     <TableRow key={r.company_id}>
                       <TableCell className="font-medium align-top">
@@ -347,7 +344,7 @@ export default function Configuracoes() {
         </Card>
 
         <p className="mt-3 text-[11px] text-muted-foreground">
-          Modelo: arquivo .docx. Taxa de juros: somente Admin. Modelo: Admin e Coordenador.
+          Modelo: arquivo .docx (envie já comprimido). Taxa de juros: somente Admin. Modelo: Admin e Coordenador.
         </p>
       </div>
     </div>
