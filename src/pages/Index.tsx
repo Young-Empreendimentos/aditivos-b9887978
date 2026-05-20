@@ -15,7 +15,9 @@ const STEPS = ['Dados', 'Seleção', 'Simulação', 'Revisão'];
 
 
 const Index = () => {
+  const [currentStep, setCurrentStep] = useState(1);
   const { user, logout } = useAuth();
+
 
   const handleLogout = async () => {
     try {
