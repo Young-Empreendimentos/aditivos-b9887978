@@ -15,7 +15,16 @@ const STEPS = ['Dados', 'Seleção', 'Simulação', 'Revisão'];
 
 
 const Index = () => {
-  const [currentStep, setCurrentStep] = useState(1);
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Erro ao sair');
+    }
+  };
+
 
   // Step 1 state
   const [templateFile, setTemplateFile] = useState<File | null>(null);
