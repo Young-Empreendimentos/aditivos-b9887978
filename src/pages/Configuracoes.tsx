@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { z } from 'zod';
-import { ArrowLeft, Download, Pencil, Plus, Save, Trash2, Upload, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Download, Loader2, Save, Upload, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -16,175 +14,150 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermission } from '@/hooks/usePermission';
+import { listEmpresas, type EmpresaSienge } from '@/lib/sienge';
 import {
-  Empreendimento,
-  base64ToBlob,
-  deleteEmpreendimento,
-  fileToBase64,
-  listEmpreendimentos,
-  upsertEmpreendimento,
-} from '@/lib/empreendimentos';
+  getConfiguracao,
+  upsertConfiguracao,
+  type ConfiguracaoEmpresa,
+} from '@/lib/configuracoes';
+import { fileToBase64, base64ToBlob } from '@/lib/empreendimentos';
 
-const MAX_TEMPLATE_BYTES = 900_000; // ~900KB to stay within 1MB Firestore doc limit
-const empSchema = z.object({
-  nome: z.string().trim().min(2, 'Nome muito curto').max(80, 'Máx. 80 caracteres'),
-  taxaJuros: z.number().min(0, 'Mín. 0').max(100, 'Máx. 100'),
-});
+const MAX_TEMPLATE_BYTES = 900_000;
 
-interface DraftState {
-  id?: string;
-  nome: string;
-  taxaJuros: string;
-  templateFile?: File | null;
-  templateName?: string;
+interface Row {
+  company_id: string;
+  company_name: string;
+  taxaJuros: string; // editable text
+  originalTaxa: number;
   templateBase64?: string;
+  templateName?: string;
   templateSize?: number;
+  dirty: boolean;
+  saving: boolean;
 }
-
-const emptyDraft: DraftState = { nome: '', taxaJuros: '' };
 
 export default function Configuracoes() {
   const { user } = useAuth();
   const { isAdmin, isCoordinator, role } = usePermission();
   const canEditTaxa = isAdmin;
   const canEditTemplate = isCoordinator; // includes admin
-  const canDelete = isAdmin;
+  const readOnly = !canEditTaxa && !canEditTemplate;
 
-  const [items, setItems] = useState<Empreendimento[]>([]);
+  const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
-  const [draft, setDraft] = useState<DraftState | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<Empreendimento | null>(null);
-
-  async function reload() {
-    setLoading(true);
-    try {
-      setItems(await listEmpreendimentos());
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Erro ao carregar empreendimentos');
-    } finally {
-      setLoading(false);
-    }
-  }
 
   useEffect(() => {
-    reload();
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const empresas = await listEmpresas();
+        const configs = await Promise.all(
+          empresas.map((e) => getConfiguracao(e.company_id).catch(() => null))
+        );
+        if (cancelled) return;
+        const merged: Row[] = empresas.map((e: EmpresaSienge, i) => {
+          const cfg = configs[i] as ConfiguracaoEmpresa | null;
+          return {
+            company_id: e.company_id,
+            company_name: e.company_name,
+            taxaJuros: String(cfg?.taxaJuros ?? 0),
+            originalTaxa: Number(cfg?.taxaJuros ?? 0),
+            templateBase64: cfg?.templateBase64,
+            templateName: cfg?.templateName,
+            templateSize: cfg?.templateSize,
+            dirty: false,
+            saving: false,
+          };
+        });
+        setRows(merged);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Erro ao carregar empresas';
+        toast.error(msg);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  function startNew() {
-    if (!canEditTaxa && !canEditTemplate) return;
-    setDraft({ ...emptyDraft });
+  function updateRow(id: string, patch: Partial<Row>) {
+    setRows((prev) => prev.map((r) => (r.company_id === id ? { ...r, ...patch, dirty: true } : r)));
   }
 
-  function startEdit(e: Empreendimento) {
-    setDraft({
-      id: e.id,
-      nome: e.nome,
-      taxaJuros: String(e.taxaJuros ?? 0),
-      templateName: e.templateName,
-      templateBase64: e.templateBase64,
-      templateSize: e.templateSize,
-    });
-  }
-
-  function cancelDraft() {
-    setDraft(null);
-  }
-
-  async function onPickTemplate(file: File) {
+  async function onPickTemplate(id: string, file: File) {
     if (!file.name.toLowerCase().endsWith('.docx')) {
       toast.error('O modelo deve ser um arquivo .docx');
       return;
     }
     if (file.size > MAX_TEMPLATE_BYTES) {
-      toast.error('Arquivo muito grande. Limite atual: 900 KB.');
+      toast.error('Arquivo muito grande. Limite: 900 KB.');
       return;
     }
     try {
       const b64 = await fileToBase64(file);
-      setDraft((d) =>
-        d
-          ? { ...d, templateFile: file, templateName: file.name, templateBase64: b64, templateSize: file.size }
-          : d
-      );
+      updateRow(id, {
+        templateBase64: b64,
+        templateName: file.name,
+        templateSize: file.size,
+      });
     } catch {
       toast.error('Falha ao ler o arquivo');
     }
   }
 
-  function downloadTemplate(e: Empreendimento) {
-    if (!e.templateBase64) return;
-    const blob = base64ToBlob(e.templateBase64);
+  function downloadTemplate(r: Row) {
+    if (!r.templateBase64) return;
+    const blob = base64ToBlob(r.templateBase64);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = e.templateName ?? `${e.nome}.docx`;
+    a.download = r.templateName ?? `${r.company_name}.docx`;
     a.click();
     URL.revokeObjectURL(url);
   }
 
-  async function saveDraft() {
-    if (!draft) return;
-    const parsed = empSchema.safeParse({
-      nome: draft.nome,
-      taxaJuros: Number(draft.taxaJuros),
-    });
-    if (!parsed.success) {
-      toast.error(parsed.error.issues[0].message);
+  async function saveRow(r: Row) {
+    const taxa = Number(r.taxaJuros);
+    if (!Number.isFinite(taxa) || taxa < 0 || taxa > 100) {
+      toast.error('Taxa inválida (0–100)');
       return;
     }
-    setSaving(true);
+    setRows((prev) => prev.map((x) => (x.company_id === r.company_id ? { ...x, saving: true } : x)));
     try {
-      await upsertEmpreendimento(
-        {
-          id: draft.id,
-          nome: parsed.data.nome,
-          taxaJuros: parsed.data.taxaJuros,
-          templateBase64: draft.templateBase64,
-          templateName: draft.templateName,
-          templateSize: draft.templateSize,
-        },
-        user?.email ?? null
+      await upsertConfiguracao({
+        company_id: r.company_id,
+        company_name: r.company_name,
+        taxaJuros: taxa,
+        templateBase64: r.templateBase64,
+        templateName: r.templateName,
+        templateSize: r.templateSize,
+        updatedBy: user?.email ?? null,
+      });
+      toast.success(`Configuração salva: ${r.company_name}`);
+      setRows((prev) =>
+        prev.map((x) =>
+          x.company_id === r.company_id
+            ? { ...x, saving: false, dirty: false, originalTaxa: taxa }
+            : x
+        )
       );
-      toast.success('Empreendimento salvo');
-      setDraft(null);
-      await reload();
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Erro ao salvar');
-    } finally {
-      setSaving(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao salvar';
+      toast.error(msg);
+      setRows((prev) =>
+        prev.map((x) => (x.company_id === r.company_id ? { ...x, saving: false } : x))
+      );
     }
   }
-
-  async function doDelete() {
-    if (!confirmDelete) return;
-    try {
-      await deleteEmpreendimento(confirmDelete.id);
-      toast.success('Empreendimento removido');
-      setConfirmDelete(null);
-      await reload();
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Erro ao remover');
-    }
-  }
-
-  const readOnly = !canEditTaxa && !canEditTemplate;
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         <header className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button asChild variant="ghost" size="sm">
@@ -195,7 +168,7 @@ export default function Configuracoes() {
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Configurações</h1>
               <p className="text-sm text-muted-foreground">
-                Taxas de juros e modelos de aditivo por empreendimento
+                Taxa de juros e modelo de aditivo por empresa
               </p>
             </div>
           </div>
@@ -209,186 +182,134 @@ export default function Configuracoes() {
         )}
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">Empreendimentos</CardTitle>
-            {(canEditTaxa || canEditTemplate) && !draft && (
-              <Button size="sm" onClick={startNew}>
-                <Plus className="h-4 w-4" /> Novo
-              </Button>
-            )}
+          <CardHeader>
+            <CardTitle className="text-base">Empresas</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead className="w-32 text-right">Taxa (% a.m.)</TableHead>
+                  <TableHead>Empresa</TableHead>
+                  <TableHead className="w-36 text-right">Taxa (% a.m.)</TableHead>
                   <TableHead>Modelo (.docx)</TableHead>
-                  <TableHead className="w-40 text-right">Ações</TableHead>
+                  <TableHead className="w-32">Status</TableHead>
+                  <TableHead className="w-28 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-8">
-                      Carregando…
+                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                      <Loader2 className="inline h-4 w-4 animate-spin mr-2" /> Carregando empresas…
                     </TableCell>
                   </TableRow>
                 )}
-                {!loading && items.length === 0 && !draft && (
+                {!loading && rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-8">
-                      Nenhum empreendimento cadastrado.
+                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                      Nenhuma empresa encontrada no Sienge.
                     </TableCell>
                   </TableRow>
                 )}
-                {items.map((e) => (
-                  <TableRow key={e.id}>
-                    <TableCell className="font-medium">{e.nome}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {Number(e.taxaJuros).toFixed(2)}
-                    </TableCell>
-                    <TableCell>
-                      {e.templateName ? (
-                        <button
-                          type="button"
-                          onClick={() => downloadTemplate(e)}
-                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                        >
-                          <Download className="h-3 w-3" />
-                          {e.templateName}
-                        </button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="inline-flex gap-1">
-                        {(canEditTaxa || canEditTemplate) && (
-                          <Button variant="ghost" size="sm" onClick={() => startEdit(e)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        {canDelete && (
+                {rows.map((r) => {
+                  const configured = !!r.templateBase64;
+                  return (
+                    <TableRow key={r.company_id}>
+                      <TableCell className="font-medium align-top">
+                        <div>{r.company_name}</div>
+                        <div className="text-[10px] text-muted-foreground tabular-nums">
+                          ID {r.company_id}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right align-top">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={r.taxaJuros}
+                          disabled={!canEditTaxa || r.saving}
+                          onChange={(e) =>
+                            updateRow(r.company_id, { taxaJuros: e.target.value })
+                          }
+                          className="h-8 w-28 ml-auto tabular-nums text-right"
+                        />
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Button
-                            variant="ghost"
+                            type="button"
+                            variant="outline"
                             size="sm"
-                            onClick={() => setConfirmDelete(e)}
+                            disabled={!canEditTemplate || r.saving}
+                            onClick={() =>
+                              document.getElementById(`tpl-${r.company_id}`)?.click()
+                            }
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Upload className="h-3.5 w-3.5" />
+                            {r.templateName ? 'Trocar' : 'Enviar'}
                           </Button>
+                          <input
+                            id={`tpl-${r.company_id}`}
+                            type="file"
+                            accept=".docx"
+                            hidden
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) onPickTemplate(r.company_id, f);
+                              e.target.value = '';
+                            }}
+                          />
+                          {r.templateName && (
+                            <button
+                              type="button"
+                              onClick={() => downloadTemplate(r)}
+                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline max-w-[200px] truncate"
+                              title={r.templateName}
+                            >
+                              <Download className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{r.templateName}</span>
+                            </button>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="align-top">
+                        {configured ? (
+                          <Badge className="bg-emerald-600 hover:bg-emerald-600 gap-1">
+                            <CheckCircle2 className="h-3 w-3" /> Configurado
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="border-amber-500 text-amber-600 gap-1">
+                            <AlertCircle className="h-3 w-3" /> Sem modelo
+                          </Badge>
                         )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell className="text-right align-top">
+                        <Button
+                          size="sm"
+                          disabled={!r.dirty || r.saving || readOnly}
+                          onClick={() => saveRow(r)}
+                        >
+                          {r.saving ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Save className="h-3.5 w-3.5" />
+                          )}
+                          Salvar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
 
-        {draft && (
-          <Card className="mt-6">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-base">
-                {draft.id ? 'Editar empreendimento' : 'Novo empreendimento'}
-              </CardTitle>
-              <Button variant="ghost" size="sm" onClick={cancelDraft}>
-                <X className="h-4 w-4" />
-              </Button>
-            </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="nome">Nome do empreendimento</Label>
-                <Input
-                  id="nome"
-                  maxLength={80}
-                  value={draft.nome}
-                  onChange={(e) => setDraft({ ...draft, nome: e.target.value })}
-                  disabled={!canEditTaxa && !canEditTemplate}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="taxa">Taxa de juros (% a.m.)</Label>
-                <Input
-                  id="taxa"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="100"
-                  value={draft.taxaJuros}
-                  onChange={(e) => setDraft({ ...draft, taxaJuros: e.target.value })}
-                  disabled={!canEditTaxa}
-                  className="tabular-nums"
-                />
-                {!canEditTaxa && (
-                  <p className="text-[11px] text-muted-foreground">Somente Admin pode alterar a taxa.</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Modelo de aditivo (.docx)</Label>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={!canEditTemplate}
-                    onClick={() => document.getElementById('tpl-input')?.click()}
-                  >
-                    <Upload className="h-4 w-4" />
-                    {draft.templateName ? 'Trocar arquivo' : 'Enviar arquivo'}
-                  </Button>
-                  <input
-                    id="tpl-input"
-                    type="file"
-                    accept=".docx"
-                    hidden
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) onPickTemplate(f);
-                      e.target.value = '';
-                    }}
-                  />
-                  {draft.templateName && (
-                    <span className="text-xs text-muted-foreground truncate">
-                      {draft.templateName}
-                    </span>
-                  )}
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Limite 900 KB. Apenas Admin e Coordenador podem alterar.
-                </p>
-              </div>
-
-              <div className="sm:col-span-2 flex justify-end gap-2">
-                <Button variant="outline" onClick={cancelDraft} disabled={saving}>
-                  Cancelar
-                </Button>
-                <Button onClick={saveDraft} disabled={saving || readOnly}>
-                  <Save className="h-4 w-4" /> Salvar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          Limite de modelo: 900 KB (.docx). Taxa de juros: somente Admin. Modelo: Admin e Coordenador.
+        </p>
       </div>
-
-      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remover empreendimento?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação é permanente. O modelo de aditivo também será removido.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={doDelete}>Remover</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
