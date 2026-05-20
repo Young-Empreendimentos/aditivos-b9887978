@@ -24,7 +24,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signInWithGoogle = async () => {
-    await signInWithPopup(auth, googleProvider);
+    const result = await signInWithPopup(auth, googleProvider);
+    const email = result.user.email ?? '';
+    if (!email.toLowerCase().endsWith('@youngempreendimentos.com.br')) {
+      await signOut(auth);
+      throw new Error('Acesso restrito. Use sua conta @youngempreendimentos.com.br');
+    }
   };
 
   const logout = async () => {
