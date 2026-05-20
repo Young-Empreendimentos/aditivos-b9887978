@@ -9,13 +9,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
-import { ArrowRight, CalendarIcon, Search, Loader2, Check, FileText, User } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ArrowRight, CalendarIcon, Search, Loader2, Check, FileText, User, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
+  listEmpresas,
   searchClientes,
   listContratosByCliente,
   listParcelasByContrato,
+  type EmpresaSienge,
   type ClienteSienge,
   type ContratoSienge,
   type SiengeParcelaRow,
@@ -86,6 +95,10 @@ export function Step1({
   onParcelasLoaded,
   onNext,
 }: Step1Props) {
+  const [empresas, setEmpresas] = useState<EmpresaSienge[]>([]);
+  const [loadingEmpresas, setLoadingEmpresas] = useState(false);
+  const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>('');
+
   const [searchTerm, setSearchTerm] = useState(selectedCliente?.client_name ?? '');
   const [clientes, setClientes] = useState<ClienteSienge[]>([]);
   const [loadingClientes, setLoadingClientes] = useState(false);
@@ -93,8 +106,28 @@ export function Step1({
   const [loadingContratos, setLoadingContratos] = useState(false);
   const [loadingParcelas, setLoadingParcelas] = useState(false);
 
-  // Debounced client search
+  // Load empresas on mount
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoadingEmpresas(true);
+      try {
+        const list = await listEmpresas();
+        if (!cancelled) setEmpresas(list);
+      } catch (err: any) {
+        if (!cancelled) toast.error(err?.message ?? 'Erro ao carregar empresas');
+      } finally {
+        if (!cancelled) setLoadingEmpresas(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Debounced client search (only after empresa selected)
+  useEffect(() => {
+    if (!selectedEmpresaId) return;
     if (selectedCliente) return;
     const term = searchTerm.trim();
     if (term.length < 3) {
@@ -104,7 +137,7 @@ export function Step1({
     const handle = setTimeout(async () => {
       setLoadingClientes(true);
       try {
-        const res = await searchClientes(term);
+        const res = await searchClientes(term, selectedEmpresaId);
         setClientes(res);
       } catch (err: any) {
         toast.error(err?.message ?? 'Erro ao buscar clientes');
@@ -113,7 +146,17 @@ export function Step1({
       }
     }, 350);
     return () => clearTimeout(handle);
-  }, [searchTerm, selectedCliente]);
+  }, [searchTerm, selectedCliente, selectedEmpresaId]);
+
+  const handleEmpresaChange = (id: string) => {
+    setSelectedEmpresaId(id);
+    onClienteSelect(null);
+    onContratoSelect(null);
+    onParcelasLoaded([]);
+    setContratos([]);
+    setClientes([]);
+    setSearchTerm('');
+  };
 
   const handleSelectCliente = async (c: ClienteSienge) => {
     onClienteSelect(c);
@@ -123,7 +166,7 @@ export function Step1({
     setSearchTerm(c.client_name);
     setLoadingContratos(true);
     try {
-      const list = await listContratosByCliente(c.client_id);
+      const list = await listContratosByCliente(c.client_id, selectedEmpresaId || undefined);
       setContratos(list);
       if (list.length === 0) toast.info('Nenhum contrato em aberto para este cliente.');
     } catch (err: any) {
@@ -160,6 +203,10 @@ export function Step1({
   };
 
   const handleNext = () => {
+    if (!selectedEmpresaId) {
+      toast.error('Selecione a empresa.');
+      return;
+    }
     if (!selectedContrato || parcelas.length === 0) {
       toast.error('Selecione um cliente e um contrato com parcelas em aberto.');
       return;
@@ -175,16 +222,50 @@ export function Step1({
     onNext();
   };
 
+  const selectedEmpresa = empresas.find((e) => e.company_id === selectedEmpresaId);
+
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
       <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Building2 className="h-4 w-4" /> Empresa
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Select
+            value={selectedEmpresaId}
+            onValueChange={handleEmpresaChange}
+            disabled={loadingEmpresas}
+          >
+            <SelectTrigger>
+              <SelectValue
+                placeholder={loadingEmpresas ? 'Carregando empresas...' : 'Selecione a empresa'}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {empresas.map((e) => (
+                <SelectItem key={e.company_id} value={e.company_id}>
+                  {e.company_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      <Card className={cn(!selectedEmpresaId && 'opacity-60')}>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <User className="h-4 w-4" /> Cliente
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {selectedCliente ? (
+          {!selectedEmpresaId ? (
+            <p className="text-sm text-muted-foreground">
+              Selecione uma empresa para buscar clientes.
+            </p>
+          ) : selectedCliente ? (
             <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
               <div className="flex items-center gap-2 text-sm">
                 <Check className="h-4 w-4 text-primary" />
@@ -211,7 +292,7 @@ export function Step1({
                 <div className="max-h-64 overflow-y-auto rounded-md border divide-y">
                   {clientes.length === 0 ? (
                     <p className="px-3 py-4 text-sm text-muted-foreground text-center">
-                      Nenhum cliente encontrado.
+                      Nenhum cliente encontrado{selectedEmpresa ? ` em ${selectedEmpresa.company_name}` : ''}.
                     </p>
                   ) : (
                     clientes.map((c) => (
@@ -264,7 +345,7 @@ export function Step1({
                       )}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {active && <Check className="h-4 w-4 text-primary" />}
                           <span className="font-medium">
                             {c.bill_document || `Bill ${c.bill_id}`}
