@@ -462,20 +462,6 @@ export function Step1({
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Modelo do Aditivo</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <FileUploadZone
-            accept=".docx"
-            label="Upload do Modelo (.docx)"
-            description="Modelo com placeholders {{QUADRO_1}}, {{QUADRO_2}}, etc."
-            file={templateFile}
-            onFileSelect={onTemplateFile}
-          />
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
