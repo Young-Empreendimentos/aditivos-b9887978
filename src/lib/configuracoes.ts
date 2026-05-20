@@ -38,11 +38,9 @@ export async function upsertConfiguracao(
     updatedAt: Date.now(),
     updatedBy: config.updatedBy ?? auth.currentUser?.email ?? auth.currentUser?.uid ?? null,
   };
-  // Remove undefined fields (Firestore rejects them)
-  Object.keys(payload).forEach((k) => {
-    if ((payload as Record<string, unknown>)[k] === undefined) {
-      delete (payload as Record<string, unknown>)[k];
-    }
+  const cleaned = payload as unknown as Record<string, unknown>;
+  Object.keys(cleaned).forEach((k) => {
+    if (cleaned[k] === undefined) delete cleaned[k];
   });
   await setDoc(ref, payload, { merge: true });
 }
