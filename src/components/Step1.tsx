@@ -528,9 +528,10 @@ export function Step1({
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={handleNext} size="lg">
+        <Button onClick={handleNext} size="lg" disabled={nextDisabled}>
           Próximo <ArrowRight className="w-4 h-4" />
         </Button>
+
       </div>
     </div>
   );
