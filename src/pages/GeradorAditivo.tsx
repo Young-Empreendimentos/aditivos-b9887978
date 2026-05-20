@@ -107,6 +107,12 @@ const GeradorAditivo = () => {
                 </div>
               </div>
             )}
+            <Button asChild variant="outline" size="sm">
+              <Link to="/">
+                <Home className="h-4 w-4" />
+                <span className="hidden sm:inline">Menu</span>
+              </Link>
+            </Button>
             {isCoordinator && (
               <Button asChild variant="outline" size="sm">
                 <Link to="/configuracoes">
