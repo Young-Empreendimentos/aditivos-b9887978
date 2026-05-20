@@ -53,7 +53,7 @@ interface Step1Props {
   selectedCliente: ClienteSienge | null;
   selectedContrato: ContratoSienge | null;
   parcelas: Parcela[];
-  onTemplateFile: (f: File) => void;
+  onTemplateFile: (f: File | null) => void;
   onTaxaJuros: (v: number) => void;
   onCustosAdicionais: (v: number) => void;
   onDataRenegociacao: (d: Date) => void;
