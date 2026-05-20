@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
-import { LogOut } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { LogOut, Settings } from 'lucide-react';
 import { Stepper } from '@/components/Stepper';
 import { Step1 } from '@/components/Step1';
 import { Step2 } from '@/components/Step2';
