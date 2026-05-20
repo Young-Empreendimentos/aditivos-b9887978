@@ -43,7 +43,7 @@ export interface SiengeParcelaRow {
 }
 
 export async function listEmpresas(): Promise<EmpresaSienge[]> {
-  const { data, error } = await supabase.rpc("get_empresas_abertas");
+  const { data, error } = await supabase.from("mv_empresas").select("company_id, company_name").order("company_name");
   if (error) throw error;
   return (data ?? []).map((row: { company_id: number; company_name: string }) => ({
     company_id: String(row.company_id),
