@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { FileUploadZone } from '@/components/FileUploadZone';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -16,7 +15,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowRight, CalendarIcon, Search, Loader2, Check, FileText, User, Building2 } from 'lucide-react';
+import {
+  ArrowRight,
+  CalendarIcon,
+  Search,
+  Loader2,
+  Check,
+  FileText,
+  User,
+  Building2,
+  AlertTriangle,
+  FileCheck2,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -29,8 +39,11 @@ import {
   type ContratoSienge,
   type SiengeParcelaRow,
 } from '@/lib/sienge';
+import { getConfiguracao } from '@/lib/configuracoes';
+import { base64ToBlob } from '@/lib/empreendimentos';
 import type { Parcela } from '@/types/contract';
 import { formatCurrency } from '@/lib/formatters';
+
 
 interface Step1Props {
   templateFile: File | null;
