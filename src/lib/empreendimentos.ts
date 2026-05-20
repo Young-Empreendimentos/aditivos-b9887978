@@ -43,7 +43,7 @@ export async function upsertEmpreendimento(
   e: Omit<Empreendimento, 'id'> & { id?: string },
   updatedBy?: string | null
 ): Promise<string> {
-  const id = e.id ?? slugify(e.nome) || crypto.randomUUID();
+  const id = e.id ?? (slugify(e.nome) || crypto.randomUUID());
   const ref = doc(db, EMPREENDIMENTOS_COLLECTION, id);
   const payload: Record<string, unknown> = {
     nome: e.nome,
