@@ -193,4 +193,4 @@ const GeradorAditivo = () => {
   );
 };
 
-export default Index;
+export default GeradorAditivo;
