@@ -1,12 +1,21 @@
 const SIENGE_FUNCTION_URL = "https://vvtympzatclvjaqucebr.supabase.co/functions/v1/sienge-query";
+const SIENGE_ANON_KEY =
+  "REMOVIDO_CHAVE_ANON";
 
 async function callSienge(action: string, params: Record<string, unknown>) {
   const res = await fetch(SIENGE_FUNCTION_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${SIENGE_ANON_KEY}`,
+      apikey: SIENGE_ANON_KEY,
+    },
     body: JSON.stringify({ action, params }),
   });
-  if (!res.ok) throw new Error(`Erro na função: ${res.statusText}`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Erro na função (${res.status}): ${text || res.statusText}`);
+  }
   const json = await res.json();
   if (json.error) throw new Error(json.error);
   return json.data;
