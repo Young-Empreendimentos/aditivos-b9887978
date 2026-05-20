@@ -84,10 +84,16 @@ const GeradorAditivo = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto px-4 py-8">
-        <header className="mb-8 relative text-center">
-          <div className="absolute right-0 top-0 flex items-center gap-3">
+        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight">Gerador de Aditivo Contratual</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Reparcelamento de contrato de compra e venda de imóvel
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end shrink-0">
             {user && (
-              <div className="hidden sm:flex items-center gap-2">
+              <div className="hidden md:flex items-center gap-2 mr-1">
                 <Avatar className="h-8 w-8">
                   {user.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName ?? user.email ?? ''} />}
                   <AvatarFallback>
@@ -95,7 +101,7 @@ const GeradorAditivo = () => {
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col items-start leading-tight">
-                  <span className="text-xs font-medium">{user.displayName ?? user.email}</span>
+                  <span className="text-xs font-medium truncate max-w-[160px]">{user.displayName ?? user.email}</span>
                   <Badge variant={ROLE_BADGE_VARIANT[role]} className="h-4 px-1.5 text-[10px]">
                     {ROLE_LABELS[role]}
                   </Badge>
@@ -118,11 +124,9 @@ const GeradorAditivo = () => {
             )}
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
-              Sair
+              <span className="hidden sm:inline">Sair</span>
             </Button>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Gerador de Aditivo Contratual</h1>
-          <p className="text-sm text-muted-foreground mt-1">Reparcelamento de contrato de compra e venda de imóvel</p>
         </header>
 
         <Stepper currentStep={currentStep} steps={STEPS} />
