@@ -6,17 +6,26 @@ import { Step2 } from '@/components/Step2';
 import { Step3 } from '@/components/Step3';
 import { Step4 } from '@/components/Step4';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { parseReportFile } from '@/lib/parseReport';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermission, ROLE_LABELS } from '@/hooks/usePermission';
 import type { Parcela, NovaParcela, Reforco } from '@/types/contract';
 import { toast } from 'sonner';
 
 const STEPS = ['Dados', 'Seleção', 'Simulação', 'Revisão'];
 
+const ROLE_BADGE_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = {
+  admin: 'default',
+  coordinator: 'secondary',
+  common: 'outline',
+};
 
 const Index = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const { user, logout } = useAuth();
+  const { role, isAdmin, isCoordinator } = usePermission();
 
 
   const handleLogout = async () => {
@@ -81,8 +90,21 @@ const Index = () => {
       <div className="max-w-6xl mx-auto px-4 py-8">
         <header className="mb-8 relative text-center">
           <div className="absolute right-0 top-0 flex items-center gap-3">
-            {user?.email && (
-              <span className="hidden sm:inline text-xs text-muted-foreground">{user.email}</span>
+            {user && (
+              <div className="hidden sm:flex items-center gap-2">
+                <Avatar className="h-8 w-8">
+                  {user.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName ?? user.email ?? ''} />}
+                  <AvatarFallback>
+                    {(user.displayName ?? user.email ?? '?').slice(0, 1).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col items-start leading-tight">
+                  <span className="text-xs font-medium">{user.displayName ?? user.email}</span>
+                  <Badge variant={ROLE_BADGE_VARIANT[role]} className="h-4 px-1.5 text-[10px]">
+                    {ROLE_LABELS[role]}
+                  </Badge>
+                </div>
+              </div>
             )}
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
