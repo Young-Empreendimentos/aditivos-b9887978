@@ -7,6 +7,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index.tsx";
 import Login from "./pages/Login.tsx";
+import GeradorAditivo from "./pages/GeradorAditivo.tsx";
+import Quitacao from "./pages/Quitacao.tsx";
 import Configuracoes from "./pages/Configuracoes.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -26,6 +28,22 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Index />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/gerador-aditivo"
+              element={
+                <ProtectedRoute>
+                  <GeradorAditivo />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/quitacao"
+              element={
+                <ProtectedRoute>
+                  <Quitacao />
                 </ProtectedRoute>
               }
             />

@@ -1,21 +1,12 @@
-import { useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { LogOut, Settings } from 'lucide-react';
-import { Stepper } from '@/components/Stepper';
-import { Step1 } from '@/components/Step1';
-import { Step2 } from '@/components/Step2';
-import { Step3 } from '@/components/Step3';
-import { Step4 } from '@/components/Step4';
+import { FileText, Receipt, LogOut, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { parseReportFile } from '@/lib/parseReport';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermission, ROLE_LABELS } from '@/hooks/usePermission';
-import type { Parcela, NovaParcela, Reforco } from '@/types/contract';
 import { toast } from 'sonner';
-
-const STEPS = ['Dados', 'Seleção', 'Simulação', 'Revisão'];
 
 const ROLE_BADGE_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = {
   admin: 'default',
@@ -24,10 +15,8 @@ const ROLE_BADGE_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = 
 };
 
 const Index = () => {
-  const [currentStep, setCurrentStep] = useState(1);
   const { user, logout } = useAuth();
-  const { role, isAdmin, isCoordinator } = usePermission();
-
+  const { role, isCoordinator } = usePermission();
 
   const handleLogout = async () => {
     try {
@@ -37,59 +26,10 @@ const Index = () => {
     }
   };
 
-
-  // Step 1 state
-  const [templateFile, setTemplateFile] = useState<File | null>(null);
-  const [reportFile, setReportFile] = useState<File | null>(null);
-  const [taxaJuros, setTaxaJuros] = useState(0);
-  const [custosAdicionais, setCustosAdicionais] = useState(0);
-  const [dataRenegociacao, setDataRenegociacao] = useState<Date | null>(null);
-  const [parcelas, setParcelas] = useState<Parcela[]>([]);
-
-  // Step 2 state
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-
-  // Step 3 state
-  const [numParcelas, setNumParcelas] = useState(0);
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [reforcos, setReforcos] = useState<Reforco[]>([]);
-  const [novasParcelas, setNovasParcelas] = useState<NovaParcela[]>([]);
-  const [pvTotal, setPvTotal] = useState(0);
-  const [pmtValue, setPmtValue] = useState(0);
-  const [totalJuros, setTotalJuros] = useState(0);
-  const [valorTotalRenegociado, setValorTotalRenegociado] = useState(0);
-
-  const selectedParcelas = useMemo(
-    () => parcelas.filter((p) => selectedIds.has(p.rowIndex)),
-    [parcelas, selectedIds]
-  );
-
-  const handleStep1Next = useCallback(async () => {
-    if (!reportFile) return;
-    try {
-      const parsed = await parseReportFile(reportFile);
-      setParcelas(parsed);
-      setCurrentStep(2);
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  }, [reportFile]);
-
-  const handleSimulationResult = useCallback(
-    (np: NovaParcela[], pv: number, pmt: number, tj: number, tr: number) => {
-      setNovasParcelas(np);
-      setPvTotal(pv);
-      setPmtValue(pmt);
-      setTotalJuros(tj);
-      setValorTotalRenegociado(tr);
-    },
-    []
-  );
-
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto px-4 py-8">
-        <header className="mb-8 relative text-center">
+        <header className="mb-12 relative text-center">
           <div className="absolute right-0 top-0 flex items-center gap-3">
             {user && (
               <div className="hidden sm:flex items-center gap-2">
@@ -120,74 +60,35 @@ const Index = () => {
               Sair
             </Button>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Gerador de Aditivo Contratual</h1>
-          <p className="text-sm text-muted-foreground mt-1">Reparcelamento de contrato de compra e venda de imóvel</p>
+          <h1 className="text-3xl font-bold tracking-tight">Young Empreendimentos</h1>
+          <p className="text-sm text-muted-foreground mt-1">Selecione uma ferramenta para começar</p>
         </header>
 
-        <Stepper currentStep={currentStep} steps={STEPS} />
+        <div className="grid gap-6 sm:grid-cols-2 max-w-3xl mx-auto">
+          <Link to="/gerador-aditivo" className="group">
+            <Card className="h-full transition-all hover:shadow-lg hover:border-primary cursor-pointer">
+              <CardHeader>
+                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
+                  <FileText className="h-6 w-6 text-primary" />
+                </div>
+                <CardTitle>Gerador de Aditivo Contratual</CardTitle>
+                <CardDescription>Reparcelamento de contrato de compra e venda de imóvel</CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
 
-        {currentStep === 1 && (
-          <Step1
-            templateFile={templateFile}
-            reportFile={reportFile}
-            taxaJuros={taxaJuros}
-            custosAdicionais={custosAdicionais}
-            dataRenegociacao={dataRenegociacao}
-            onTemplateFile={setTemplateFile}
-            onReportFile={setReportFile}
-            onTaxaJuros={setTaxaJuros}
-            onCustosAdicionais={setCustosAdicionais}
-            onDataRenegociacao={setDataRenegociacao}
-            onNext={handleStep1Next}
-          />
-        )}
-
-        {currentStep === 2 && (
-          <Step2
-            parcelas={parcelas}
-            selectedIds={selectedIds}
-            onSelectionChange={setSelectedIds}
-            onNext={() => setCurrentStep(3)}
-            onBack={() => setCurrentStep(1)}
-          />
-        )}
-
-        {currentStep === 3 && (
-          <Step3
-            parcelas={parcelas}
-            selectedParcelas={selectedParcelas}
-            selectedIds={selectedIds}
-            taxaJuros={taxaJuros}
-            custosAdicionais={custosAdicionais}
-            dataRenegociacao={dataRenegociacao!}
-            numParcelas={numParcelas}
-            startDate={startDate}
-            reforcos={reforcos}
-            onNumParcelas={setNumParcelas}
-            onStartDate={setStartDate}
-            onReforcos={setReforcos}
-            onSimulationResult={handleSimulationResult}
-            onNext={() => setCurrentStep(4)}
-            onBack={() => setCurrentStep(2)}
-          />
-        )}
-
-        {currentStep === 4 && (
-          <Step4
-            templateFile={templateFile}
-            allParcelas={parcelas}
-            selectedParcelas={selectedParcelas}
-            selectedIds={selectedIds}
-            novasParcelas={novasParcelas}
-            taxaJuros={taxaJuros}
-            custosAdicionais={custosAdicionais}
-            pvTotal={pvTotal}
-            totalJuros={totalJuros}
-            valorTotalRenegociado={valorTotalRenegociado}
-            pmtValue={pmtValue}
-            onBack={() => setCurrentStep(3)}
-          />
-        )}
+          <Link to="/quitacao" className="group">
+            <Card className="h-full transition-all hover:shadow-lg hover:border-primary cursor-pointer">
+              <CardHeader>
+                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
+                  <Receipt className="h-6 w-6 text-primary" />
+                </div>
+                <CardTitle>Quitação</CardTitle>
+                <CardDescription>Em construção</CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+        </div>
       </div>
     </div>
   );
