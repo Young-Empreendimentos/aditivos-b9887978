@@ -77,7 +77,7 @@ export default function Configuracoes() {
             company_name: e.company_name,
             taxaJuros: String(cfg?.taxaJuros ?? 0),
             originalTaxa: Number(cfg?.taxaJuros ?? 0),
-            templateBase64: cfg?.templateBase64,
+            hasTemplate: !!cfg?.templateBase64,
             templateName: cfg?.templateName,
             templateSize: cfg?.templateSize,
             pendingFile: null,
