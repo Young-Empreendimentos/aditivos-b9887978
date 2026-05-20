@@ -39,8 +39,7 @@ import {
   type ContratoSienge,
   type SiengeParcelaRow,
 } from '@/lib/sienge';
-import { getConfiguracao } from '@/lib/configuracoes';
-import { base64ToBlob } from '@/lib/empreendimentos';
+import { getConfiguracao, fetchTemplateAsFile } from '@/lib/configuracoes';
 import type { Parcela } from '@/types/contract';
 import { formatCurrency } from '@/lib/formatters';
 
@@ -181,14 +180,11 @@ export function Step1({
     setLoadingConfig(true);
     try {
       const cfg = await getConfiguracao(id);
-      if (!cfg || !cfg.templateBase64) {
+      const file = cfg ? await fetchTemplateAsFile(cfg) : null;
+      if (!cfg || !file) {
         setConfigMissing(true);
         return;
       }
-      const blob = base64ToBlob(cfg.templateBase64);
-      const file = new File([blob], cfg.templateName ?? `${cfg.company_name}.docx`, {
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      });
       onTemplateFile(file);
       setConfigTemplateName(cfg.templateName ?? file.name);
       if (typeof cfg.taxaJuros === 'number') onTaxaJuros(cfg.taxaJuros);
