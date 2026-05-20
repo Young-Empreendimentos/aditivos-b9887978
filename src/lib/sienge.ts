@@ -54,10 +54,37 @@ export interface ContratoSienge {
   parcelasCount: number;
 }
 
-export async function searchClientes(term: string): Promise<ClienteSienge[]> {
-  if (term.trim().length < 3) return [];
-  return callSienge("search_clientes", { term: term.trim() });
+function normalize(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }
+
+export async function searchClientes(term: string): Promise<ClienteSienge[]> {
+  const trimmed = term.trim();
+  if (trimmed.length < 3) return [];
+
+  // Server-side ILIKE with multi-word strings causes statement timeouts.
+  // Strategy: query with the longest single token (>= 3 chars), then filter
+  // by all remaining tokens locally.
+  const tokens = trimmed.split(/\s+/).filter((t) => t.length >= 3);
+  const queryToken = tokens.length
+    ? tokens.reduce((a, b) => (b.length > a.length ? b : a))
+    : trimmed;
+
+  const results: ClienteSienge[] = await callSienge("search_clientes", { term: queryToken });
+
+  if (tokens.length <= 1) return results;
+
+  const normalizedTokens = tokens.map(normalize);
+  return results.filter((c) => {
+    const name = normalize(c.client_name || "");
+    return normalizedTokens.every((t) => name.includes(t));
+  });
+}
+
 
 const CLOSED_STATUSES = new Set(["paid", "revoked", "canceled", "cancelled"]);
 
