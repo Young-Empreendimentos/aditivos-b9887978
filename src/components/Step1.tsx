@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { FileUploadZone } from '@/components/FileUploadZone';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -16,7 +15,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowRight, CalendarIcon, Search, Loader2, Check, FileText, User, Building2 } from 'lucide-react';
+import {
+  ArrowRight,
+  CalendarIcon,
+  Search,
+  Loader2,
+  Check,
+  FileText,
+  User,
+  Building2,
+  AlertTriangle,
+  FileCheck2,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -29,8 +39,11 @@ import {
   type ContratoSienge,
   type SiengeParcelaRow,
 } from '@/lib/sienge';
+import { getConfiguracao } from '@/lib/configuracoes';
+import { base64ToBlob } from '@/lib/empreendimentos';
 import type { Parcela } from '@/types/contract';
 import { formatCurrency } from '@/lib/formatters';
+
 
 interface Step1Props {
   templateFile: File | null;
@@ -40,7 +53,7 @@ interface Step1Props {
   selectedCliente: ClienteSienge | null;
   selectedContrato: ContratoSienge | null;
   parcelas: Parcela[];
-  onTemplateFile: (f: File) => void;
+  onTemplateFile: (f: File | null) => void;
   onTaxaJuros: (v: number) => void;
   onCustosAdicionais: (v: number) => void;
   onDataRenegociacao: (d: Date) => void;
@@ -106,6 +119,10 @@ export function Step1({
   const [loadingContratos, setLoadingContratos] = useState(false);
   const [loadingParcelas, setLoadingParcelas] = useState(false);
 
+  const [loadingConfig, setLoadingConfig] = useState(false);
+  const [configTemplateName, setConfigTemplateName] = useState<string | null>(null);
+  const [configMissing, setConfigMissing] = useState(false);
+
   // Load empresas on mount
   useEffect(() => {
     let cancelled = false;
@@ -114,6 +131,7 @@ export function Step1({
       try {
         const list = await listEmpresas();
         if (!cancelled) setEmpresas(list);
+
       } catch (err: any) {
         if (!cancelled) toast.error(err?.message ?? 'Erro ao carregar empresas');
       } finally {
@@ -148,7 +166,7 @@ export function Step1({
     return () => clearTimeout(handle);
   }, [searchTerm, selectedCliente, selectedEmpresaId]);
 
-  const handleEmpresaChange = (id: string) => {
+  const handleEmpresaChange = async (id: string) => {
     setSelectedEmpresaId(id);
     onClienteSelect(null);
     onContratoSelect(null);
@@ -156,7 +174,33 @@ export function Step1({
     setContratos([]);
     setClientes([]);
     setSearchTerm('');
+    onTemplateFile(null as unknown as File);
+    setConfigTemplateName(null);
+    setConfigMissing(false);
+    if (!id) return;
+    setLoadingConfig(true);
+    try {
+      const cfg = await getConfiguracao(id);
+      if (!cfg || !cfg.templateBase64) {
+        setConfigMissing(true);
+        return;
+      }
+      const blob = base64ToBlob(cfg.templateBase64);
+      const file = new File([blob], cfg.templateName ?? `${cfg.company_name}.docx`, {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      });
+      onTemplateFile(file);
+      setConfigTemplateName(cfg.templateName ?? file.name);
+      if (typeof cfg.taxaJuros === 'number') onTaxaJuros(cfg.taxaJuros);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao carregar configuração da empresa';
+      toast.error(msg);
+      setConfigMissing(true);
+    } finally {
+      setLoadingConfig(false);
+    }
   };
+
 
   const handleSelectCliente = async (c: ClienteSienge) => {
     onClienteSelect(c);
@@ -207,6 +251,10 @@ export function Step1({
       toast.error('Selecione a empresa.');
       return;
     }
+    if (configMissing || !templateFile) {
+      toast.error('Esta empresa não possui modelo de aditivo configurado.');
+      return;
+    }
     if (!selectedContrato || parcelas.length === 0) {
       toast.error('Selecione um cliente e um contrato com parcelas em aberto.');
       return;
@@ -222,6 +270,9 @@ export function Step1({
     onNext();
   };
 
+  const nextDisabled = !selectedEmpresaId || configMissing || !templateFile || loadingConfig;
+
+
   const selectedEmpresa = empresas.find((e) => e.company_id === selectedEmpresaId);
 
   return (
@@ -232,7 +283,7 @@ export function Step1({
             <Building2 className="h-4 w-4" /> Empresa
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <Select
             value={selectedEmpresaId}
             onValueChange={handleEmpresaChange}
@@ -251,7 +302,32 @@ export function Step1({
               ))}
             </SelectContent>
           </Select>
+
+          {selectedEmpresaId && loadingConfig && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando configuração da empresa…
+            </div>
+          )}
+
+          {selectedEmpresaId && !loadingConfig && configTemplateName && (
+            <div className="flex items-center gap-2 rounded-md border border-emerald-600/30 bg-emerald-600/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
+              <FileCheck2 className="h-4 w-4 shrink-0" />
+              <span className="truncate">
+                Modelo carregado: <span className="font-medium">{configTemplateName}</span>
+              </span>
+            </div>
+          )}
+
+          {selectedEmpresaId && !loadingConfig && configMissing && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                Nenhum modelo configurado para esta empresa. Contate o administrador.
+              </span>
+            </div>
+          )}
         </CardContent>
+
       </Card>
 
       <Card className={cn(!selectedEmpresaId && 'opacity-60')}>
@@ -386,20 +462,6 @@ export function Step1({
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Modelo do Aditivo</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <FileUploadZone
-            accept=".docx"
-            label="Upload do Modelo (.docx)"
-            description="Modelo com placeholders {{QUADRO_1}}, {{QUADRO_2}}, etc."
-            file={templateFile}
-            onFileSelect={onTemplateFile}
-          />
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
@@ -466,9 +528,10 @@ export function Step1({
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={handleNext} size="lg">
+        <Button onClick={handleNext} size="lg" disabled={nextDisabled}>
           Próximo <ArrowRight className="w-4 h-4" />
         </Button>
+
       </div>
     </div>
   );
