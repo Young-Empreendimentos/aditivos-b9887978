@@ -43,15 +43,12 @@ export interface SiengeParcelaRow {
 }
 
 export async function listEmpresas(): Promise<EmpresaSienge[]> {
-  const { data, error } = await supabase.from("sienge_parcelas_receber").select("company_id, company_name");
+  const { data, error } = await supabase.rpc("get_empresas_abertas");
   if (error) throw error;
-  const map = new Map<string, EmpresaSienge>();
-  for (const row of data ?? []) {
-    if (!row.company_id || !row.company_name) continue;
-    if (!map.has(String(row.company_id)))
-      map.set(String(row.company_id), { company_id: String(row.company_id), company_name: row.company_name });
-  }
-  return Array.from(map.values()).sort((a, b) => a.company_name.localeCompare(b.company_name));
+  return (data ?? []).map((row: { company_id: number; company_name: string }) => ({
+    company_id: String(row.company_id),
+    company_name: row.company_name,
+  }));
 }
 
 export async function searchClientes(term: string, companyId?: string): Promise<ClienteSienge[]> {
