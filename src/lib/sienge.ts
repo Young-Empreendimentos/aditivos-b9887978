@@ -2,14 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const SIENGE_URL = "https://vvtympzatclvjaqucebr.supabase.co";
 const SIENGE_ANON_KEY =
-  REMOVIDO_JWT_HEADER
-    .REMOVIDO_ANON_PAYLOAD
-    .REMOVIDO_ANON_SIG;
-
-if (SIENGE_ANON_KEY === "SUPABASE_ANON_KEY_PLACEHOLDER") {
-  // eslint-disable-next-line no-console
-  console.warn("[sienge] Substitua SUPABASE_ANON_KEY_PLACEHOLDER em src/lib/sienge.ts pela anon key real.");
-}
+  "REMOVIDO_CHAVE_ANON";
 
 export const sienge = createClient(SIENGE_URL, SIENGE_ANON_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
