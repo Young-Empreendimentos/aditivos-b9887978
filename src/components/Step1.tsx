@@ -119,6 +119,10 @@ export function Step1({
   const [loadingContratos, setLoadingContratos] = useState(false);
   const [loadingParcelas, setLoadingParcelas] = useState(false);
 
+  const [loadingConfig, setLoadingConfig] = useState(false);
+  const [configTemplateName, setConfigTemplateName] = useState<string | null>(null);
+  const [configMissing, setConfigMissing] = useState(false);
+
   // Load empresas on mount
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +131,7 @@ export function Step1({
       try {
         const list = await listEmpresas();
         if (!cancelled) setEmpresas(list);
+
       } catch (err: any) {
         if (!cancelled) toast.error(err?.message ?? 'Erro ao carregar empresas');
       } finally {
