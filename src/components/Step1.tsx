@@ -166,7 +166,7 @@ export function Step1({
     return () => clearTimeout(handle);
   }, [searchTerm, selectedCliente, selectedEmpresaId]);
 
-  const handleEmpresaChange = (id: string) => {
+  const handleEmpresaChange = async (id: string) => {
     setSelectedEmpresaId(id);
     onClienteSelect(null);
     onContratoSelect(null);
@@ -174,7 +174,33 @@ export function Step1({
     setContratos([]);
     setClientes([]);
     setSearchTerm('');
+    onTemplateFile(null as unknown as File);
+    setConfigTemplateName(null);
+    setConfigMissing(false);
+    if (!id) return;
+    setLoadingConfig(true);
+    try {
+      const cfg = await getConfiguracao(id);
+      if (!cfg || !cfg.templateBase64) {
+        setConfigMissing(true);
+        return;
+      }
+      const blob = base64ToBlob(cfg.templateBase64);
+      const file = new File([blob], cfg.templateName ?? `${cfg.company_name}.docx`, {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      });
+      onTemplateFile(file);
+      setConfigTemplateName(cfg.templateName ?? file.name);
+      if (typeof cfg.taxaJuros === 'number') onTaxaJuros(cfg.taxaJuros);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao carregar configuração da empresa';
+      toast.error(msg);
+      setConfigMissing(true);
+    } finally {
+      setLoadingConfig(false);
+    }
   };
+
 
   const handleSelectCliente = async (c: ClienteSienge) => {
     onClienteSelect(c);
