@@ -24,7 +24,7 @@ import {
 } from '@/lib/configuracoes';
 import { fileToBase64, base64ToBlob } from '@/lib/empreendimentos';
 
-const MAX_TEMPLATE_BYTES = 900_000;
+
 
 interface Row {
   company_id: string;
@@ -92,10 +92,6 @@ export default function Configuracoes() {
   async function onPickTemplate(id: string, file: File) {
     if (!file.name.toLowerCase().endsWith('.docx')) {
       toast.error('O modelo deve ser um arquivo .docx');
-      return;
-    }
-    if (file.size > MAX_TEMPLATE_BYTES) {
-      toast.error('Arquivo muito grande. Limite: 900 KB.');
       return;
     }
     try {
@@ -307,7 +303,7 @@ export default function Configuracoes() {
         </Card>
 
         <p className="mt-3 text-[11px] text-muted-foreground">
-          Limite de modelo: 900 KB (.docx). Taxa de juros: somente Admin. Modelo: Admin e Coordenador.
+          Modelo: arquivo .docx. Taxa de juros: somente Admin. Modelo: Admin e Coordenador.
         </p>
       </div>
     </div>
