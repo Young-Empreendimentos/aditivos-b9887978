@@ -107,6 +107,14 @@ const Index = () => {
                 </div>
               </div>
             )}
+            {isCoordinator && (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/configuracoes">
+                  <Settings className="h-4 w-4" />
+                  <span className="hidden sm:inline">Configurações</span>
+                </Link>
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
               Sair
