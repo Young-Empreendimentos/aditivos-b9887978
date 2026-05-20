@@ -59,11 +59,22 @@ export async function searchClientes(term: string): Promise<ClienteSienge[]> {
   return callSienge("search_clientes", { term: term.trim() });
 }
 
+const CLOSED_STATUSES = new Set(["paid", "revoked", "canceled", "cancelled"]);
+
+function isOpen(row: { payment_status?: string | null; current_balance?: number | null }): boolean {
+  const status = (row.payment_status ?? "").toLowerCase();
+  if (CLOSED_STATUSES.has(status)) return false;
+  // Some rows have null status but zero balance - exclude when balance == 0
+  const bal = Number(row.current_balance ?? 0);
+  return !(status === "" && bal <= 0);
+}
+
 export async function listContratosByCliente(clientId: string): Promise<ContratoSienge[]> {
   const data = await callSienge("list_contratos", { client_id: clientId });
   const map = new Map<string, ContratoSienge>();
   for (const row of data ?? []) {
     if (!row.bill_id) continue;
+    if (!isOpen(row)) continue;
     const key = `${row.bill_id}__${row.bill_document ?? ""}`;
     const existing = map.get(key);
     if (existing) {
@@ -87,5 +98,10 @@ export async function listContratosByCliente(clientId: string): Promise<Contrato
 }
 
 export async function listParcelasByContrato(billId: string, billDocument: string): Promise<SiengeParcelaRow[]> {
-  return callSienge("list_parcelas", { bill_id: billId, bill_document: billDocument });
+  const rows: SiengeParcelaRow[] = await callSienge("list_parcelas", {
+    bill_id: billId,
+    bill_document: billDocument,
+  });
+  return (rows ?? []).filter(isOpen);
 }
+
