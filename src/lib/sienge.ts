@@ -1,5 +1,6 @@
 const SIENGE_FUNCTION_URL = "https://vvtympzatclvjaqucebr.supabase.co/functions/v1/sienge-query";
-const SIENGE_ANON_KEY = "sua_anon_key_aqui"; // mesma que você já usa
+const SIENGE_ANON_KEY =
+  "REMOVIDO_CHAVE_ANON"; // mesma que você já usa
 
 async function callSienge(action: string, params: Record<string, unknown> = {}) {
   const res = await fetch(SIENGE_FUNCTION_URL, {
