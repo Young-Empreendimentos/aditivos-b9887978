@@ -1,14 +1,18 @@
 import { useState, useCallback, useMemo } from 'react';
+import { LogOut } from 'lucide-react';
 import { Stepper } from '@/components/Stepper';
 import { Step1 } from '@/components/Step1';
 import { Step2 } from '@/components/Step2';
 import { Step3 } from '@/components/Step3';
 import { Step4 } from '@/components/Step4';
+import { Button } from '@/components/ui/button';
 import { parseReportFile } from '@/lib/parseReport';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Parcela, NovaParcela, Reforco } from '@/types/contract';
 import { toast } from 'sonner';
 
 const STEPS = ['Dados', 'Seleção', 'Simulação', 'Revisão'];
+
 
 const Index = () => {
   const [currentStep, setCurrentStep] = useState(1);
