@@ -119,13 +119,16 @@ export default function Configuracoes() {
       let blob: Blob | null = null;
       if (r.pendingFile) {
         blob = r.pendingFile;
-      } else if (r.templateBase64) {
-        const binary = atob(r.templateBase64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        blob = new Blob([bytes], {
-          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        });
+      } else if (r.hasTemplate) {
+        const cfg = await getConfiguracao(r.company_id);
+        if (cfg?.templateBase64) {
+          const binary = atob(cfg.templateBase64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          blob = new Blob([bytes], {
+            type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          });
+        }
       }
       if (!blob) return;
       const url = URL.createObjectURL(blob);
@@ -148,7 +151,7 @@ export default function Configuracoes() {
     }
     setRows((prev) => prev.map((x) => (x.company_id === r.company_id ? { ...x, saving: true } : x)));
     try {
-      let templateBase64 = r.templateBase64;
+      let templateBase64: string | undefined;
       let templateName = r.templateName;
       let templateSize = r.templateSize;
 
@@ -162,7 +165,8 @@ export default function Configuracoes() {
         company_id: r.company_id,
         company_name: r.company_name,
         taxaJuros: taxa,
-        templateBase64,
+        // só envia templateBase64 se houver novo arquivo; senão mantém o atual via merge
+        ...(templateBase64 ? { templateBase64 } : {}),
         templateName,
         templateSize,
         updatedBy: user?.email ?? null,
@@ -176,7 +180,7 @@ export default function Configuracoes() {
                 saving: false,
                 dirty: false,
                 originalTaxa: taxa,
-                templateBase64,
+                hasTemplate: x.hasTemplate || !!templateBase64,
                 templateName,
                 templateSize,
                 pendingFile: null,
