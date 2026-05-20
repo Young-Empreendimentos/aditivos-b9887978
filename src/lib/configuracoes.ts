@@ -102,11 +102,11 @@ export async function fetchTemplateAsFile(
   if (cfg.templateBase64Gz) {
     const gz = base64ToUint8(cfg.templateBase64Gz);
     const bytes = pako.ungzip(gz);
-    return new File([bytes], name, { type: DOCX_MIME });
+    return new File([bytes.buffer as ArrayBuffer], name, { type: DOCX_MIME });
   }
   if (cfg.templateBase64) {
     const bytes = base64ToUint8(cfg.templateBase64);
-    return new File([bytes], name, { type: DOCX_MIME });
+    return new File([bytes.buffer as ArrayBuffer], name, { type: DOCX_MIME });
   }
   if (cfg.templateUrl) {
     const res = await fetch(cfg.templateUrl);
