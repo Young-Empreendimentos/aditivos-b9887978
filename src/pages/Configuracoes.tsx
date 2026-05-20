@@ -28,13 +28,14 @@ interface Row {
   company_name: string;
   taxaJuros: string;
   originalTaxa: number;
-  templateBase64?: string;
+  hasTemplate: boolean; // só indica presença; o base64 não fica no state
   templateName?: string;
   templateSize?: number;
   pendingFile?: File | null;
   dirty: boolean;
   saving: boolean;
 }
+
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
