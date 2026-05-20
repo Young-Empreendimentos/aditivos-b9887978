@@ -1,17 +1,32 @@
 import { useState, useCallback, useMemo } from 'react';
+import { LogOut } from 'lucide-react';
 import { Stepper } from '@/components/Stepper';
 import { Step1 } from '@/components/Step1';
 import { Step2 } from '@/components/Step2';
 import { Step3 } from '@/components/Step3';
 import { Step4 } from '@/components/Step4';
+import { Button } from '@/components/ui/button';
 import { parseReportFile } from '@/lib/parseReport';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Parcela, NovaParcela, Reforco } from '@/types/contract';
 import { toast } from 'sonner';
 
 const STEPS = ['Dados', 'Seleção', 'Simulação', 'Revisão'];
 
+
 const Index = () => {
   const [currentStep, setCurrentStep] = useState(1);
+  const { user, logout } = useAuth();
+
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Erro ao sair');
+    }
+  };
+
 
   // Step 1 state
   const [templateFile, setTemplateFile] = useState<File | null>(null);
@@ -64,7 +79,16 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto px-4 py-8">
-        <header className="mb-8 text-center">
+        <header className="mb-8 relative text-center">
+          <div className="absolute right-0 top-0 flex items-center gap-3">
+            {user?.email && (
+              <span className="hidden sm:inline text-xs text-muted-foreground">{user.email}</span>
+            )}
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4" />
+              Sair
+            </Button>
+          </div>
           <h1 className="text-2xl font-bold tracking-tight">Gerador de Aditivo Contratual</h1>
           <p className="text-sm text-muted-foreground mt-1">Reparcelamento de contrato de compra e venda de imóvel</p>
         </header>
