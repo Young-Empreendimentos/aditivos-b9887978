@@ -2,9 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const SIENGE_URL = "https://vvtympzatclvjaqucebr.supabase.co";
 const SIENGE_ANON_KEY =
-  REMOVIDO_JWT_HEADER
-    .REMOVIDO_ANON_PAYLOAD
-    .REMOVIDO_ANON_SIG;
+  "REMOVIDO_CHAVE_ANON";
 
 if (SIENGE_ANON_KEY === "SUPABASE_ANON_KEY_PLACEHOLDER") {
   // eslint-disable-next-line no-console
