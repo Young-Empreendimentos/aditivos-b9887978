@@ -20,9 +20,10 @@ import { listEmpresas, type EmpresaSienge } from '@/lib/sienge';
 import {
   getConfiguracao,
   upsertConfiguracao,
+  uploadTemplate,
+  
   type ConfiguracaoEmpresa,
 } from '@/lib/configuracoes';
-import { fileToBase64, base64ToBlob } from '@/lib/empreendimentos';
 
 
 
@@ -31,9 +32,12 @@ interface Row {
   company_name: string;
   taxaJuros: string; // editable text
   originalTaxa: number;
-  templateBase64?: string;
+  templateUrl?: string;
+  templatePath?: string;
+  templateBase64?: string; // legado
   templateName?: string;
   templateSize?: number;
+  pendingFile?: File | null; // novo arquivo a enviar no save
   dirty: boolean;
   saving: boolean;
 }
@@ -65,9 +69,12 @@ export default function Configuracoes() {
             company_name: e.company_name,
             taxaJuros: String(cfg?.taxaJuros ?? 0),
             originalTaxa: Number(cfg?.taxaJuros ?? 0),
+            templateUrl: cfg?.templateUrl,
+            templatePath: cfg?.templatePath,
             templateBase64: cfg?.templateBase64,
             templateName: cfg?.templateName,
             templateSize: cfg?.templateSize,
+            pendingFile: null,
             dirty: false,
             saving: false,
           };
@@ -89,32 +96,46 @@ export default function Configuracoes() {
     setRows((prev) => prev.map((r) => (r.company_id === id ? { ...r, ...patch, dirty: true } : r)));
   }
 
-  async function onPickTemplate(id: string, file: File) {
+  function onPickTemplate(id: string, file: File) {
     if (!file.name.toLowerCase().endsWith('.docx')) {
       toast.error('O modelo deve ser um arquivo .docx');
       return;
     }
-    try {
-      const b64 = await fileToBase64(file);
-      updateRow(id, {
-        templateBase64: b64,
-        templateName: file.name,
-        templateSize: file.size,
-      });
-    } catch {
-      toast.error('Falha ao ler o arquivo');
-    }
+    updateRow(id, {
+      pendingFile: file,
+      templateName: file.name,
+      templateSize: file.size,
+    });
   }
 
-  function downloadTemplate(r: Row) {
-    if (!r.templateBase64) return;
-    const blob = base64ToBlob(r.templateBase64);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = r.templateName ?? `${r.company_name}.docx`;
-    a.click();
-    URL.revokeObjectURL(url);
+  async function downloadTemplate(r: Row) {
+    try {
+      let blob: Blob | null = null;
+      if (r.pendingFile) {
+        blob = r.pendingFile;
+      } else if (r.templateUrl) {
+        const res = await fetch(r.templateUrl);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        blob = await res.blob();
+      } else if (r.templateBase64) {
+        const binary = atob(r.templateBase64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        blob = new Blob([bytes], {
+          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        });
+      }
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = r.templateName ?? `${r.company_name}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao baixar modelo';
+      toast.error(msg);
+    }
   }
 
   async function saveRow(r: Row) {
@@ -125,11 +146,25 @@ export default function Configuracoes() {
     }
     setRows((prev) => prev.map((x) => (x.company_id === r.company_id ? { ...x, saving: true } : x)));
     try {
+      let templateUrl = r.templateUrl;
+      let templatePath = r.templatePath;
+      // legacy base64 ainda preservado apenas se ainda não tiver migrado
+      let templateBase64: string | undefined = r.templateBase64;
+
+      if (r.pendingFile) {
+        const up = await uploadTemplate(r.company_id, r.pendingFile);
+        templateUrl = up.url;
+        templatePath = up.path;
+        templateBase64 = undefined; // descarta legado depois do upload
+      }
+
       await upsertConfiguracao({
         company_id: r.company_id,
         company_name: r.company_name,
         taxaJuros: taxa,
-        templateBase64: r.templateBase64,
+        templateUrl,
+        templatePath,
+        templateBase64,
         templateName: r.templateName,
         templateSize: r.templateSize,
         updatedBy: user?.email ?? null,
@@ -138,7 +173,16 @@ export default function Configuracoes() {
       setRows((prev) =>
         prev.map((x) =>
           x.company_id === r.company_id
-            ? { ...x, saving: false, dirty: false, originalTaxa: taxa }
+            ? {
+                ...x,
+                saving: false,
+                dirty: false,
+                originalTaxa: taxa,
+                templateUrl,
+                templatePath,
+                templateBase64,
+                pendingFile: null,
+              }
             : x
         )
       );
@@ -208,7 +252,7 @@ export default function Configuracoes() {
                   </TableRow>
                 )}
                 {rows.map((r) => {
-                  const configured = !!r.templateBase64;
+                  const configured = !!(r.templateUrl || r.templateBase64 || r.pendingFile);
                   return (
                     <TableRow key={r.company_id}>
                       <TableCell className="font-medium align-top">
