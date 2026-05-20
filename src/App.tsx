@@ -32,6 +32,22 @@ const App = () => (
               }
             />
             <Route
+              path="/gerador-aditivo"
+              element={
+                <ProtectedRoute>
+                  <GeradorAditivo />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/quitacao"
+              element={
+                <ProtectedRoute>
+                  <Quitacao />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/configuracoes"
               element={
                 <ProtectedRoute>
