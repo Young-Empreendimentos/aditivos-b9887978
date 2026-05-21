@@ -109,23 +109,29 @@ export async function generateDocx(
   // Replace ONLY the <w:p> whose visible text is exactly the placeholder
   // (ignoring whitespace and empty runs). This preserves preceding title paragraphs.
   const replacePlaceholder = (xml: string, placeholder: string, tableXml: string): string => {
-    const escapedPh = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Match each <w:p>...</w:p>, then check that concatenated text equals the placeholder
+    const normalizedPlaceholder = placeholder.trim();
     const paragraphRe = /<w:p\b[^>]*>[\s\S]*?<\/w:p>/g;
-    return xml.replace(paragraphRe, (paragraph) => {
-      // Extract visible text from <w:t>...</w:t>
+    const replaced = xml.replace(paragraphRe, (paragraph) => {
       const texts = Array.from(paragraph.matchAll(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g))
         .map((m) => m[1])
-        .join('');
-      if (texts.trim() === placeholder) {
-        return tableXml;
-      }
+        .join('')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .trim();
+      if (texts === normalizedPlaceholder) return tableXml;
       return paragraph;
     });
+    if (replaced !== xml) return replaced;
+    return xml.replace(new RegExp(escapeXml(placeholder).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), tableXml);
   };
 
-  docXml = replacePlaceholder(docXml, '___QUADRO1_PLACEHOLDER___', buildQuadro1Xml(selectedParcelas));
-  docXml = replacePlaceholder(docXml, '___QUADRO2_PLACEHOLDER___', buildQuadro2Xml(novasParcelas));
+  const quadro1Xml = buildQuadro1Xml(selectedParcelas);
+  const quadro2Xml = buildQuadro2Xml(novasParcelas);
+  docXml = replacePlaceholder(docXml, '___QUADRO1_PLACEHOLDER___', quadro1Xml);
+  docXml = replacePlaceholder(docXml, '___QUADRO2_PLACEHOLDER___', quadro2Xml);
+  docXml = replacePlaceholder(docXml, '{{QUADRO_1}}', quadro1Xml);
+  docXml = replacePlaceholder(docXml, '{{QUADRO_2}}', quadro2Xml);
 
   processedZip.file('word/document.xml', docXml);
 
