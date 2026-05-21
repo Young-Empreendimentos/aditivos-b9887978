@@ -28,8 +28,6 @@ interface Row {
   company_name: string;
   taxaJuros: string;
   originalTaxa: number;
-  taxaJurosQuitacao: string;
-  originalTaxaQuitacao: number;
   hasTemplate: boolean; // só indica presença; o base64 não fica no state
   templateName?: string;
   templateSize?: number;
@@ -79,8 +77,6 @@ export default function Configuracoes() {
             company_name: e.company_name,
             taxaJuros: String(cfg?.taxaJuros ?? 0),
             originalTaxa: Number(cfg?.taxaJuros ?? 0),
-            taxaJurosQuitacao: String(cfg?.taxaJurosQuitacao ?? 0),
-            originalTaxaQuitacao: Number(cfg?.taxaJurosQuitacao ?? 0),
             hasTemplate: !!cfg?.templateBase64,
             templateName: cfg?.templateName,
             templateSize: cfg?.templateSize,
@@ -153,11 +149,6 @@ export default function Configuracoes() {
       toast.error('Taxa de aditivo inválida (0–100)');
       return;
     }
-    const taxaQ = Number(r.taxaJurosQuitacao);
-    if (!Number.isFinite(taxaQ) || taxaQ < 0 || taxaQ > 100) {
-      toast.error('Taxa de quitação inválida (0–100)');
-      return;
-    }
     setRows((prev) => prev.map((x) => (x.company_id === r.company_id ? { ...x, saving: true } : x)));
     try {
       let templateBase64: string | undefined;
@@ -174,7 +165,6 @@ export default function Configuracoes() {
         company_id: r.company_id,
         company_name: r.company_name,
         taxaJuros: taxa,
-        taxaJurosQuitacao: taxaQ,
         // só envia templateBase64 se houver novo arquivo; senão mantém o atual via merge
         ...(templateBase64 ? { templateBase64 } : {}),
         templateName,
@@ -190,7 +180,6 @@ export default function Configuracoes() {
                 saving: false,
                 dirty: false,
                 originalTaxa: taxa,
-                originalTaxaQuitacao: taxaQ,
                 hasTemplate: x.hasTemplate || !!templateBase64,
                 templateName,
                 templateSize,
@@ -219,7 +208,7 @@ export default function Configuracoes() {
               </Link>
             </Button>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Configurações</h1>
+              <h1 className="text-2xl font-bold tracking-tight">Configurações · Aditivo</h1>
               <p className="text-sm text-muted-foreground">
                 Taxa de juros e modelo de aditivo por empresa
               </p>
@@ -243,8 +232,7 @@ export default function Configuracoes() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Empresa</TableHead>
-                  <TableHead className="w-32 text-right">Juros Aditivo (% a.m.)</TableHead>
-                  <TableHead className="w-32 text-right">Juros Quitação (% a.m.)</TableHead>
+                  <TableHead className="w-36 text-right">Taxa (% a.m.)</TableHead>
                   <TableHead>Modelo (.docx)</TableHead>
                   <TableHead className="w-32">Status</TableHead>
                   <TableHead className="w-28 text-right">Ações</TableHead>
@@ -253,14 +241,14 @@ export default function Configuracoes() {
               <TableBody>
                 {loading && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
+                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
                       <Loader2 className="inline h-4 w-4 animate-spin mr-2" /> Carregando empresas…
                     </TableCell>
                   </TableRow>
                 )}
                 {!loading && rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
+                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
                       Nenhuma empresa encontrada no Sienge.
                     </TableCell>
                   </TableRow>
@@ -285,20 +273,6 @@ export default function Configuracoes() {
                           disabled={!canEditTaxa || r.saving}
                           onChange={(e) =>
                             updateRow(r.company_id, { taxaJuros: e.target.value })
-                          }
-                          className="h-8 w-24 ml-auto tabular-nums text-right"
-                        />
-                      </TableCell>
-                      <TableCell className="text-right align-top">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
-                          value={r.taxaJurosQuitacao}
-                          disabled={!canEditTaxa || r.saving}
-                          onChange={(e) =>
-                            updateRow(r.company_id, { taxaJurosQuitacao: e.target.value })
                           }
                           className="h-8 w-24 ml-auto tabular-nums text-right"
                         />
