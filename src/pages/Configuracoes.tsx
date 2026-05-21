@@ -286,7 +286,21 @@ export default function Configuracoes() {
                           onChange={(e) =>
                             updateRow(r.company_id, { taxaJuros: e.target.value })
                           }
-                          className="h-8 w-28 ml-auto tabular-nums text-right"
+                          className="h-8 w-24 ml-auto tabular-nums text-right"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right align-top">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={r.taxaJurosQuitacao}
+                          disabled={!canEditTaxa || r.saving}
+                          onChange={(e) =>
+                            updateRow(r.company_id, { taxaJurosQuitacao: e.target.value })
+                          }
+                          className="h-8 w-24 ml-auto tabular-nums text-right"
                         />
                       </TableCell>
                       <TableCell className="align-top">
