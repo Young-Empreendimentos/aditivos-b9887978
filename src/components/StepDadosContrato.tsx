@@ -74,6 +74,8 @@ function parteFromApi(p: ParteContrato | undefined): ParteForm {
 function applyApiToForm(api: DadosContrato, prev: DadosContratoForm): DadosContratoForm {
   const principal = api.partes.find((p) => p.is_principal) ?? api.partes[0];
   const conjuge = api.partes.find((p) => p.is_conjuge);
+  const cidadePrincipal = principal?.endereco?.cidade ?? '';
+  const estadoPrincipal = principal?.endereco?.estado ?? '';
   return {
     ...prev,
     empreendimento: api.contrato.empreendimento ?? prev.empreendimento,
@@ -81,6 +83,8 @@ function applyApiToForm(api: DadosContrato, prev: DadosContratoForm): DadosContr
     area: api.unidade?.area != null ? String(api.unidade.area) : '',
     matricula: api.unidade?.matricula != null ? String(api.unidade.matricula) : '',
     onus: api.unidade?.onus ?? '',
+    cidade_empreendimento: prev.cidade_empreendimento || cidadePrincipal,
+    estado_empreendimento: prev.estado_empreendimento || estadoPrincipal,
     numero_contrato: api.contrato.numero ?? prev.numero_contrato,
     data_contrato: (api.contrato.data_contrato ?? '').slice(0, 10),
     valor_total: api.contrato.valor_total != null ? String(api.contrato.valor_total) : '',
