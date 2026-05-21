@@ -13,6 +13,15 @@ function formatDate(date: Date): string {
   return format(date, 'dd/MM/yyyy', { locale: ptBR });
 }
 
+function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 function ooCell(text: string, bold = false, align: 'left' | 'center' | 'right' = 'left'): string {
   const jc = align === 'right' ? 'end' : align === 'center' ? 'center' : 'start';
   const rPr = bold ? '<w:rPr><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>' : '<w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>';
@@ -23,20 +32,24 @@ function ooRow(cells: string[], isHeader = false): string {
   return `<w:tr>${isHeader ? '<w:trPr><w:tblHeader/></w:trPr>' : ''}${cells.join('')}</w:tr>`;
 }
 
+function ooParagraph(text: string): string {
+  return `<w:p><w:r><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r></w:p>`;
+}
+
 function buildQuadro1Xml(parcelas: Parcela[]): string {
   const headerRow = ooRow([
     ooCell('Nº Parcela', true, 'center'),
     ooCell('Data Vencimento', true, 'center'),
-    ooCell('Valor Original', true, 'center'),
+    ooCell('Saldo Atual', true, 'center'),
   ], true);
 
   const dataRows = parcelas.map(p => ooRow([
     ooCell(String(p.numero).padStart(2, '0'), false, 'center'),
     ooCell(formatDate(p.dataVencimento), false, 'center'),
-    ooCell(formatCurrency(p.valorOriginal), false, 'right'),
+    ooCell(formatCurrency(p.saldoAtual), false, 'right'),
   ]));
 
-  const total = parcelas.reduce((s, p) => s + p.valorOriginal, 0);
+  const total = parcelas.reduce((s, p) => s + p.saldoAtual, 0);
   const totalRow = ooRow([ooCell('Total', true, 'center'), ooCell('', false, 'center'), ooCell(formatCurrency(total), true, 'right')]);
   const tblBorders = '<w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:left w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:right w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="999999"/></w:tblBorders>';
   return `<w:tbl><w:tblPr><w:tblStyle w:val="TableGrid"/><w:tblW w:w="5000" w:type="pct"/><w:jc w:val="center"/>${tblBorders}</w:tblPr>${headerRow}${dataRows.join('')}${totalRow}</w:tbl>`;
@@ -86,6 +99,10 @@ export async function generateDocx(
     ...extraPlaceholders,
     QUADRO_1: '___QUADRO1_PLACEHOLDER___',
     QUADRO_2: '___QUADRO2_PLACEHOLDER___',
+    QUADRO1: '___QUADRO1_PLACEHOLDER___',
+    QUADRO2: '___QUADRO2_PLACEHOLDER___',
+    TABELA_QUADRO_1: '___QUADRO1_PLACEHOLDER___',
+    TABELA_QUADRO_2: '___QUADRO2_PLACEHOLDER___',
     JUROS_ADOTADOS: `${taxaJuros.toFixed(2).replace('.', ',')}% a.m.`,
     CUSTOS_ADICIONAIS: formatCurrency(custosAdicionais),
     VALOR_TOTAL_RENEGOCIADO: formatCurrency(valorTotalRenegociado),
@@ -100,23 +117,37 @@ export async function generateDocx(
   // Replace ONLY the <w:p> whose visible text is exactly the placeholder
   // (ignoring whitespace and empty runs). This preserves preceding title paragraphs.
   const replacePlaceholder = (xml: string, placeholder: string, tableXml: string): string => {
-    const escapedPh = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Match each <w:p>...</w:p>, then check that concatenated text equals the placeholder
+    const normalizedPlaceholder = placeholder.trim();
     const paragraphRe = /<w:p\b[^>]*>[\s\S]*?<\/w:p>/g;
-    return xml.replace(paragraphRe, (paragraph) => {
-      // Extract visible text from <w:t>...</w:t>
+    const replaced = xml.replace(paragraphRe, (paragraph) => {
       const texts = Array.from(paragraph.matchAll(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g))
         .map((m) => m[1])
-        .join('');
-      if (texts.trim() === placeholder) {
-        return tableXml;
+        .join('')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .trim();
+      if (texts === normalizedPlaceholder) return tableXml;
+      if (texts.includes(normalizedPlaceholder)) {
+        const remainingText = texts.replace(normalizedPlaceholder, '').trim();
+        return remainingText ? `${ooParagraph(remainingText)}${tableXml}` : tableXml;
       }
       return paragraph;
     });
+    if (replaced !== xml) return replaced;
+    return xml;
   };
 
-  docXml = replacePlaceholder(docXml, '___QUADRO1_PLACEHOLDER___', buildQuadro1Xml(selectedParcelas));
-  docXml = replacePlaceholder(docXml, '___QUADRO2_PLACEHOLDER___', buildQuadro2Xml(novasParcelas));
+  const quadro1Xml = buildQuadro1Xml(selectedParcelas);
+  const quadro2Xml = buildQuadro2Xml(novasParcelas);
+  docXml = replacePlaceholder(docXml, '___QUADRO1_PLACEHOLDER___', quadro1Xml);
+  docXml = replacePlaceholder(docXml, '___QUADRO2_PLACEHOLDER___', quadro2Xml);
+  docXml = replacePlaceholder(docXml, '{{QUADRO_1}}', quadro1Xml);
+  docXml = replacePlaceholder(docXml, '{{QUADRO_2}}', quadro2Xml);
+  docXml = replacePlaceholder(docXml, '{{QUADRO1}}', quadro1Xml);
+  docXml = replacePlaceholder(docXml, '{{QUADRO2}}', quadro2Xml);
+  docXml = replacePlaceholder(docXml, '{{TABELA_QUADRO_1}}', quadro1Xml);
+  docXml = replacePlaceholder(docXml, '{{TABELA_QUADRO_2}}', quadro2Xml);
 
   processedZip.file('word/document.xml', docXml);
 
