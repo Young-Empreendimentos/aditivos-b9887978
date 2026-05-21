@@ -10,6 +10,7 @@ import Login from "./pages/Login.tsx";
 import GeradorAditivo from "./pages/GeradorAditivo.tsx";
 import Quitacao from "./pages/Quitacao.tsx";
 import Configuracoes from "./pages/Configuracoes.tsx";
+import ConfiguracoesQuitacao from "./pages/ConfiguracoesQuitacao.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
