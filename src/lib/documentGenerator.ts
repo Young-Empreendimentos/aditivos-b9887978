@@ -95,6 +95,10 @@ export async function generateDocx(
     ...extraPlaceholders,
     QUADRO_1: '___QUADRO1_PLACEHOLDER___',
     QUADRO_2: '___QUADRO2_PLACEHOLDER___',
+    QUADRO1: '___QUADRO1_PLACEHOLDER___',
+    QUADRO2: '___QUADRO2_PLACEHOLDER___',
+    TABELA_QUADRO_1: '___QUADRO1_PLACEHOLDER___',
+    TABELA_QUADRO_2: '___QUADRO2_PLACEHOLDER___',
     JUROS_ADOTADOS: `${taxaJuros.toFixed(2).replace('.', ',')}% a.m.`,
     CUSTOS_ADICIONAIS: formatCurrency(custosAdicionais),
     VALOR_TOTAL_RENEGOCIADO: formatCurrency(valorTotalRenegociado),
@@ -132,6 +136,10 @@ export async function generateDocx(
   docXml = replacePlaceholder(docXml, '___QUADRO2_PLACEHOLDER___', quadro2Xml);
   docXml = replacePlaceholder(docXml, '{{QUADRO_1}}', quadro1Xml);
   docXml = replacePlaceholder(docXml, '{{QUADRO_2}}', quadro2Xml);
+  docXml = replacePlaceholder(docXml, '{{QUADRO1}}', quadro1Xml);
+  docXml = replacePlaceholder(docXml, '{{QUADRO2}}', quadro2Xml);
+  docXml = replacePlaceholder(docXml, '{{TABELA_QUADRO_1}}', quadro1Xml);
+  docXml = replacePlaceholder(docXml, '{{TABELA_QUADRO_2}}', quadro2Xml);
 
   processedZip.file('word/document.xml', docXml);
 
