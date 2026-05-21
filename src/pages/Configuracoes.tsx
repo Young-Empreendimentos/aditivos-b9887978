@@ -165,7 +165,6 @@ export default function Configuracoes() {
         company_id: r.company_id,
         company_name: r.company_name,
         taxaJuros: taxa,
-        taxaJurosQuitacao: taxaQ,
         // só envia templateBase64 se houver novo arquivo; senão mantém o atual via merge
         ...(templateBase64 ? { templateBase64 } : {}),
         templateName,
