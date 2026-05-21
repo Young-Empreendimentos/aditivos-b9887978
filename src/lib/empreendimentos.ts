@@ -2,6 +2,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   orderBy,
   query,
@@ -12,11 +13,22 @@ import { db } from '@/lib/firebase';
 
 export const EMPREENDIMENTOS_COLLECTION = 'empreendimentos_gerador_aditivos';
 
+/** Regra específica de desconto para quitação */
+export interface RegraQuitacao {
+  is_registrado: boolean | null; // null = qualquer status
+  pago_min: number | null;       // % pago mínimo, null = 0
+  pago_max: number | null;       // % pago máximo, null = 100
+  taxa: number;                  // % a.m., ex: 0.40 = 0,40% a.m.
+  descricao?: string;
+}
+
 export interface Empreendimento {
   id: string;
   nome: string;
-  taxaJuros: number; // % a.m.
-  templateBase64?: string; // .docx encoded in base64 (small files only)
+  taxaJuros: number;              // % a.m. — usado nos aditivos
+  taxaJurosQuitacao?: number;     // % a.m. — taxa padrão de quitação
+  regrasQuitacao?: RegraQuitacao[]; // regras específicas de quitação
+  templateBase64?: string;
   templateName?: string;
   templateSize?: number;
   updatedAt?: number;
@@ -54,8 +66,16 @@ export async function upsertEmpreendimento(
   if (e.templateBase64 !== undefined) payload.templateBase64 = e.templateBase64;
   if (e.templateName !== undefined) payload.templateName = e.templateName;
   if (e.templateSize !== undefined) payload.templateSize = e.templateSize;
+  if (e.taxaJurosQuitacao !== undefined) payload.taxaJurosQuitacao = e.taxaJurosQuitacao;
+  if (e.regrasQuitacao !== undefined) payload.regrasQuitacao = e.regrasQuitacao;
   await setDoc(ref, payload, { merge: true });
   return id;
+}
+
+export async function getEmpreendimento(id: string): Promise<Empreendimento | null> {
+  const snap = await getDoc(doc(db, EMPREENDIMENTOS_COLLECTION, id));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...(snap.data() as Omit<Empreendimento, 'id'>) };
 }
 
 export async function deleteEmpreendimento(id: string): Promise<void> {
