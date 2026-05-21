@@ -150,7 +150,12 @@ export default function Configuracoes() {
   async function saveRow(r: Row) {
     const taxa = Number(r.taxaJuros);
     if (!Number.isFinite(taxa) || taxa < 0 || taxa > 100) {
-      toast.error('Taxa inválida (0–100)');
+      toast.error('Taxa de aditivo inválida (0–100)');
+      return;
+    }
+    const taxaQ = Number(r.taxaJurosQuitacao);
+    if (!Number.isFinite(taxaQ) || taxaQ < 0 || taxaQ > 100) {
+      toast.error('Taxa de quitação inválida (0–100)');
       return;
     }
     setRows((prev) => prev.map((x) => (x.company_id === r.company_id ? { ...x, saving: true } : x)));
@@ -169,6 +174,7 @@ export default function Configuracoes() {
         company_id: r.company_id,
         company_name: r.company_name,
         taxaJuros: taxa,
+        taxaJurosQuitacao: taxaQ,
         // só envia templateBase64 se houver novo arquivo; senão mantém o atual via merge
         ...(templateBase64 ? { templateBase64 } : {}),
         templateName,
@@ -184,6 +190,7 @@ export default function Configuracoes() {
                 saving: false,
                 dirty: false,
                 originalTaxa: taxa,
+                originalTaxaQuitacao: taxaQ,
                 hasTemplate: x.hasTemplate || !!templateBase64,
                 templateName,
                 templateSize,
