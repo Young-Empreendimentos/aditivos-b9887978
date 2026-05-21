@@ -208,7 +208,7 @@ export default function Configuracoes() {
               </Link>
             </Button>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Configurações</h1>
+              <h1 className="text-2xl font-bold tracking-tight">Configurações · Aditivo</h1>
               <p className="text-sm text-muted-foreground">
                 Taxa de juros e modelo de aditivo por empresa
               </p>
