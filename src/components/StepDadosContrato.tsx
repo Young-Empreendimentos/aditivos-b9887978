@@ -179,6 +179,12 @@ export function StepDadosContrato({
           <Field label="Matrícula">
             <Input value={form.matricula} onChange={(e) => onFormChange({ ...form, matricula: e.target.value })} />
           </Field>
+          <Field label="Cidade do empreendimento">
+            <Input value={form.cidade_empreendimento} onChange={(e) => onFormChange({ ...form, cidade_empreendimento: e.target.value })} />
+          </Field>
+          <Field label="UF do empreendimento">
+            <Input value={form.estado_empreendimento} maxLength={2} onChange={(e) => onFormChange({ ...form, estado_empreendimento: e.target.value.toUpperCase() })} />
+          </Field>
           <Field label="Ônus" className="sm:col-span-2">
             <Input value={form.onus} onChange={(e) => onFormChange({ ...form, onus: e.target.value })} />
           </Field>
