@@ -79,6 +79,9 @@ export async function generateDocx(
     nullGetter: () => '',
   });
 
+  const valorAntigo = selectedParcelas.reduce((s, p) => s + p.saldoAtual, 0);
+  const valorRefinanciado = novasParcelas.reduce((s, p) => s + p.valor, 0);
+
   doc.render({
     ...extraPlaceholders,
     QUADRO_1: '___QUADRO1_PLACEHOLDER___',
@@ -86,18 +89,30 @@ export async function generateDocx(
     JUROS_ADOTADOS: `${taxaJuros.toFixed(2).replace('.', ',')}% a.m.`,
     CUSTOS_ADICIONAIS: formatCurrency(custosAdicionais),
     VALOR_TOTAL_RENEGOCIADO: formatCurrency(valorTotalRenegociado),
+    VALOR_ANTIGO: formatCurrency(valorAntigo),
+    VALOR_REFINANCIADO: formatCurrency(valorRefinanciado),
   });
 
   // Second pass: replace placeholder paragraphs with actual OOXML tables
   const processedZip = doc.getZip();
   let docXml = processedZip.file('word/document.xml')!.asText();
 
-  // Replace the paragraph containing the placeholder with the table XML
+  // Replace ONLY the <w:p> whose visible text is exactly the placeholder
+  // (ignoring whitespace and empty runs). This preserves preceding title paragraphs.
   const replacePlaceholder = (xml: string, placeholder: string, tableXml: string): string => {
-    // Match the entire <w:p> element containing our placeholder text
     const escapedPh = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`<w:p[^>]*>(?:(?!<w:p[ >]).)*?${escapedPh}.*?</w:p>`, 's');
-    return xml.replace(regex, tableXml);
+    // Match each <w:p>...</w:p>, then check that concatenated text equals the placeholder
+    const paragraphRe = /<w:p\b[^>]*>[\s\S]*?<\/w:p>/g;
+    return xml.replace(paragraphRe, (paragraph) => {
+      // Extract visible text from <w:t>...</w:t>
+      const texts = Array.from(paragraph.matchAll(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g))
+        .map((m) => m[1])
+        .join('');
+      if (texts.trim() === placeholder) {
+        return tableXml;
+      }
+      return paragraph;
+    });
   };
 
   docXml = replacePlaceholder(docXml, '___QUADRO1_PLACEHOLDER___', buildQuadro1Xml(selectedParcelas));

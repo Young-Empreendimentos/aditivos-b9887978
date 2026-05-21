@@ -213,6 +213,7 @@ const GeradorAditivo = () => {
             pmtValue={pmtValue}
             dadosForm={dadosForm}
             selectedCliente={selectedCliente}
+            dataRenegociacao={dataRenegociacao}
             onBack={() => setCurrentStep(4)}
           />
         )}

@@ -28,13 +28,14 @@ interface Step4Props {
   pmtValue: number;
   dadosForm: DadosContratoForm;
   selectedCliente: ClienteSienge | null;
+  dataRenegociacao: Date | null;
   onBack: () => void;
 }
 
 export function Step4({
   templateFile, allParcelas, selectedParcelas, selectedIds, novasParcelas,
   taxaJuros, custosAdicionais, pvTotal, totalJuros, valorTotalRenegociado, pmtValue,
-  dadosForm, selectedCliente, onBack
+  dadosForm, selectedCliente, dataRenegociacao, onBack
 }: Step4Props) {
   const [generating, setGenerating] = useState(false);
 
@@ -51,7 +52,7 @@ export function Step4({
     }
     setGenerating(true);
     try {
-      const placeholders = buildPlaceholders(dadosForm);
+      const placeholders = buildPlaceholders(dadosForm, { dataRenegociacao });
       const blob = await generateDocx(templateFile, quadro1, novasParcelas, taxaJuros, custosAdicionais, valorTotalRenegociado, placeholders);
       downloadDocx(blob, fileName);
       toast.success('Documento .docx gerado com sucesso!');
