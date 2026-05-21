@@ -13,6 +13,15 @@ function formatDate(date: Date): string {
   return format(date, 'dd/MM/yyyy', { locale: ptBR });
 }
 
+function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 function ooCell(text: string, bold = false, align: 'left' | 'center' | 'right' = 'left'): string {
   const jc = align === 'right' ? 'end' : align === 'center' ? 'center' : 'start';
   const rPr = bold ? '<w:rPr><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>' : '<w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>';
@@ -27,16 +36,16 @@ function buildQuadro1Xml(parcelas: Parcela[]): string {
   const headerRow = ooRow([
     ooCell('Nº Parcela', true, 'center'),
     ooCell('Data Vencimento', true, 'center'),
-    ooCell('Valor Original', true, 'center'),
+    ooCell('Saldo Atual', true, 'center'),
   ], true);
 
   const dataRows = parcelas.map(p => ooRow([
     ooCell(String(p.numero).padStart(2, '0'), false, 'center'),
     ooCell(formatDate(p.dataVencimento), false, 'center'),
-    ooCell(formatCurrency(p.valorOriginal), false, 'right'),
+    ooCell(formatCurrency(p.saldoAtual), false, 'right'),
   ]));
 
-  const total = parcelas.reduce((s, p) => s + p.valorOriginal, 0);
+  const total = parcelas.reduce((s, p) => s + p.saldoAtual, 0);
   const totalRow = ooRow([ooCell('Total', true, 'center'), ooCell('', false, 'center'), ooCell(formatCurrency(total), true, 'right')]);
   const tblBorders = '<w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:left w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:right w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="999999"/></w:tblBorders>';
   return `<w:tbl><w:tblPr><w:tblStyle w:val="TableGrid"/><w:tblW w:w="5000" w:type="pct"/><w:jc w:val="center"/>${tblBorders}</w:tblPr>${headerRow}${dataRows.join('')}${totalRow}</w:tbl>`;
