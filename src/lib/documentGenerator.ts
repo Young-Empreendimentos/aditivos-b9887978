@@ -32,6 +32,10 @@ function ooRow(cells: string[], isHeader = false): string {
   return `<w:tr>${isHeader ? '<w:trPr><w:tblHeader/></w:trPr>' : ''}${cells.join('')}</w:tr>`;
 }
 
+function ooParagraph(text: string): string {
+  return `<w:p><w:r><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r></w:p>`;
+}
+
 function buildQuadro1Xml(parcelas: Parcela[]): string {
   const headerRow = ooRow([
     ooCell('Nº Parcela', true, 'center'),
@@ -124,10 +128,14 @@ export async function generateDocx(
         .replace(/&amp;/g, '&')
         .trim();
       if (texts === normalizedPlaceholder) return tableXml;
+      if (texts.includes(normalizedPlaceholder)) {
+        const remainingText = texts.replace(normalizedPlaceholder, '').trim();
+        return remainingText ? `${ooParagraph(remainingText)}${tableXml}` : tableXml;
+      }
       return paragraph;
     });
     if (replaced !== xml) return replaced;
-    return xml.replace(new RegExp(escapeXml(placeholder).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), tableXml);
+    return xml;
   };
 
   const quadro1Xml = buildQuadro1Xml(selectedParcelas);
