@@ -123,3 +123,61 @@ export async function listParcelasByContrato(billId: string, billDocument: strin
   if (error) throw error;
   return data ?? [];
 }
+
+export interface ParteContrato {
+  nome: string;
+  cpf: string | null;
+  email: string | null;
+  sexo: string | null;
+  nascimento: string | null;
+  naturalidade: string | null;
+  nacionalidade: string | null;
+  profissao: string | null;
+  estado_civil: string | null;
+  rg: string | null;
+  orgao_emissor: string | null;
+  data_emissao_rg: string | null;
+  telefone: string | null;
+  telefone_comercial: string | null;
+  endereco: {
+    logradouro: string | null;
+    numero: string | null;
+    bairro: string | null;
+    cidade: string | null;
+    estado: string | null;
+    cep: string | null;
+  };
+  is_conjuge: boolean;
+  is_principal: boolean;
+}
+
+export interface DadosContrato {
+  contrato: {
+    id: number;
+    numero: string;
+    empresa: string;
+    empreendimento: string;
+    data_contrato: string | null;
+    data_emissao: string | null;
+    valor_total: number | null;
+  };
+  unidade: {
+    nome: string;
+    num_lote: string;
+    matricula: number | null;
+    area: number | null;
+    onus: string | null;
+  };
+  partes: ParteContrato[];
+}
+
+export async function getDadosContrato(billId: number | string): Promise<DadosContrato | null> {
+  const { data, error } = await supabase.rpc("get_dados_contrato", {
+    p_bill_id: typeof billId === "string" ? Number(billId) : billId,
+  });
+  if (error) {
+    console.error("Erro ao buscar dados do contrato:", error);
+    return null;
+  }
+  return (data as DadosContrato) ?? null;
+}
