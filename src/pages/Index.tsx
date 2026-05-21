@@ -129,16 +129,16 @@ const Index = () => {
 
           <Link to="/quitacao" className="group">
             <Card className="relative h-full overflow-hidden border-border/60 transition-all hover:shadow-xl hover:border-primary/50 hover:-translate-y-0.5">
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-muted-foreground/40 to-transparent" />
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-primary/40" />
               <CardHeader>
-                <div className="h-11 w-11 rounded-lg bg-muted flex items-center justify-center mb-4">
-                  <Receipt className="h-5 w-5 text-muted-foreground" />
+                <div className="h-11 w-11 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  <Receipt className="h-5 w-5 text-primary group-hover:text-primary-foreground" />
                 </div>
                 <CardTitle className="flex items-center justify-between">
                   Quitação
-                  <Badge variant="secondary" className="text-[10px] font-normal">Em breve</Badge>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
                 </CardTitle>
-                <CardDescription>Termo de quitação de contrato</CardDescription>
+                <CardDescription>Cálculo de valor presente para quitação antecipada de contrato</CardDescription>
               </CardHeader>
             </Card>
           </Link>

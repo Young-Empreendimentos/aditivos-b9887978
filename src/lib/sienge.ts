@@ -42,23 +42,18 @@ export interface SiengeParcelaRow {
   main_unit: string | null;
 }
 
-/** Retorna todos os empreendimentos distintos a partir de sienge_contratos_de_vendas
- *  (uma linha por contrato — muito menor que sienge_parcelas_receber) */
+/** Retorna todos os empreendimentos distintos via RPC SECURITY DEFINER
+ *  (bypassa RLS da tabela sienge_contratos_de_vendas) */
 export async function listEmpreendimentosSienge(): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('sienge_contratos_de_vendas')
-    .select('enterprise_name')
-    .not('enterprise_name', 'is', null)
-    .limit(2000);
+  const { data, error } = await supabase.rpc('get_empreendimentos');
   if (error) {
-    console.error('[listEmpreendimentosSienge] Supabase error:', error);
+    console.error('[listEmpreendimentosSienge] Supabase RPC error:', error);
     throw new Error(error.message ?? 'Erro ao consultar empreendimentos no Supabase');
   }
-  const names = new Set<string>();
-  for (const row of (data ?? []) as { enterprise_name: string | null }[]) {
-    if (row.enterprise_name?.trim()) names.add(row.enterprise_name.trim());
-  }
-  return Array.from(names).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  return (data ?? [])
+    .map((row: { enterprise_name: string | null }) => row.enterprise_name?.trim() ?? '')
+    .filter(Boolean)
+    .sort((a: string, b: string) => a.localeCompare(b, 'pt-BR'));
 }
 
 export async function listEmpresas(): Promise<EmpresaSienge[]> {
