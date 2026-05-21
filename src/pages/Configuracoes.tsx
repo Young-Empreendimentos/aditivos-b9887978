@@ -232,8 +232,7 @@ export default function Configuracoes() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Empresa</TableHead>
-                  <TableHead className="w-32 text-right">Juros Aditivo (% a.m.)</TableHead>
-                  <TableHead className="w-32 text-right">Juros Quitação (% a.m.)</TableHead>
+                  <TableHead className="w-36 text-right">Taxa (% a.m.)</TableHead>
                   <TableHead>Modelo (.docx)</TableHead>
                   <TableHead className="w-32">Status</TableHead>
                   <TableHead className="w-28 text-right">Ações</TableHead>
@@ -249,7 +248,7 @@ export default function Configuracoes() {
                 )}
                 {!loading && rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
+                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
                       Nenhuma empresa encontrada no Sienge.
                     </TableCell>
                   </TableRow>
