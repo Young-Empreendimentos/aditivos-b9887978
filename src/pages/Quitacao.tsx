@@ -54,7 +54,7 @@ function todayIso(): string {
 const Quitacao = () => {
   // Seleção de contrato
   const [empresas, setEmpresas] = useState<EmpresaSienge[]>([]);
-  const [selectedEmpresa, setSelectedEmpresa] = useState('');
+  const [selectedEmpresa, setSelectedEmpresa] = useState('__all__');
   const [clientSearch, setClientSearch] = useState('');
   const [clientes, setClientes] = useState<ClienteSienge[]>([]);
   const [selectedCliente, setSelectedCliente] = useState<ClienteSienge | null>(null);
@@ -90,7 +90,7 @@ const Quitacao = () => {
     debounceRef.current = setTimeout(async () => {
       setLoadingClientes(true);
       try {
-        const list = await searchClientes(clientSearch, selectedEmpresa || undefined);
+        const list = await searchClientes(clientSearch, selectedEmpresa === '__all__' ? undefined : selectedEmpresa);
         setClientes(list);
       } catch {
         toast.error('Erro ao buscar clientes');
@@ -109,7 +109,7 @@ const Quitacao = () => {
     setResultado(null);
     setLoadingContratos(true);
     try {
-      const list = await listContratosByCliente(c.client_id, selectedEmpresa || undefined);
+      const list = await listContratosByCliente(c.client_id, selectedEmpresa === '__all__' ? undefined : selectedEmpresa);
       setContratos(list);
     } catch {
       toast.error('Erro ao carregar contratos');
@@ -236,7 +236,7 @@ const Quitacao = () => {
                     <SelectValue placeholder="Todas as empresas" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas as empresas</SelectItem>
+                    <SelectItem value="__all__">Todas as empresas</SelectItem>
                     {empresas.map((e) => (
                       <SelectItem key={e.company_id} value={e.company_id}>
                         {e.company_name}
