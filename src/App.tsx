@@ -56,6 +56,14 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/configuracoes/quitacao"
+              element={
+                <ProtectedRoute>
+                  <ConfiguracoesQuitacao />
+                </ProtectedRoute>
+              }
+            />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
