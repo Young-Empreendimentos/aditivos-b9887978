@@ -31,22 +31,25 @@ import {
 } from '@/components/ui/table';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermission } from '@/hooks/usePermission';
+import { listEmpreendimentosSienge } from '@/lib/sienge';
 import {
-  listEmpreendimentos,
-  upsertEmpreendimento,
-  type Empreendimento,
+  getQuitacaoConfig,
+  saveQuitacaoConfig,
+  type QuitacaoConfig,
   type RegraQuitacao,
-} from '@/lib/empreendimentos';
+} from '@/lib/quitacaoConfig';
 
-// ─── Linha editável da tabela principal ──────────────────────────────────────
+// ─── Linha da tabela principal ────────────────────────────────────────────────
 
-interface EmpRow extends Empreendimento {
+interface EmpRow {
+  nome: string;
   taxaInput: string;
+  regras: RegraQuitacao[];
   dirty: boolean;
   saving: boolean;
 }
 
-// ─── Componente de regras específicas (Dialog) ────────────────────────────────
+// ─── Dialog de regras específicas ────────────────────────────────────────────
 
 interface RegraRow extends RegraQuitacao {
   _key: number;
@@ -57,12 +60,14 @@ function emptyRegra(key: number): RegraRow {
 }
 
 function RegraDialog({
-  empreendimento,
+  nomeEmp,
+  regrasIniciais,
   open,
   onClose,
   onSaved,
 }: {
-  empreendimento: Empreendimento;
+  nomeEmp: string;
+  regrasIniciais: RegraQuitacao[];
   open: boolean;
   onClose: () => void;
   onSaved: (regras: RegraQuitacao[]) => void;
@@ -72,12 +77,8 @@ function RegraDialog({
   const { user } = useAuth();
 
   useEffect(() => {
-    if (open) {
-      setRegras(
-        (empreendimento.regrasQuitacao ?? []).map((r, i) => ({ ...r, _key: i }))
-      );
-    }
-  }, [open, empreendimento]);
+    if (open) setRegras(regrasIniciais.map((r, i) => ({ ...r, _key: i })));
+  }, [open, regrasIniciais]);
 
   function addRegra() {
     setRegras((prev) => [...prev, emptyRegra(Date.now())]);
@@ -105,10 +106,12 @@ function RegraDialog({
         pago_min: r.pago_min,
         pago_max: r.pago_max,
         taxa: Number(r.taxa),
-        descricao: r.descricao || undefined,
+        ...(r.descricao ? { descricao: r.descricao } : {}),
       }));
-      await upsertEmpreendimento(
-        { ...empreendimento, regrasQuitacao: clean },
+      // Busca taxa_padrao atual para não sobrescrever
+      const current = await getQuitacaoConfig(nomeEmp);
+      await saveQuitacaoConfig(
+        { empreendimento: nomeEmp, taxa_padrao: current?.taxa_padrao ?? 0, regras: clean },
         user?.email ?? null
       );
       toast.success('Regras salvas!');
@@ -121,24 +124,19 @@ function RegraDialog({
     }
   }
 
-  const registradoLabel = (v: boolean | null) => {
-    if (v === true) return 'Sim';
-    if (v === false) return 'Não';
-    return 'Qualquer';
-  };
+  const registradoLabel = (v: boolean | null) =>
+    v === true ? 'Sim' : v === false ? 'Não' : 'Qualquer';
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Regras específicas — {empreendimento.nome}</DialogTitle>
+          <DialogTitle>Regras específicas — {nomeEmp}</DialogTitle>
         </DialogHeader>
-
         <p className="text-xs text-muted-foreground -mt-2 mb-3">
-          O sistema usa a <strong>primeira regra que bater</strong> nos critérios. Se nenhuma bater,
-          usa a taxa padrão.
+          O sistema usa a <strong>primeira regra que bater</strong> nos 3 critérios.
+          Se nenhuma bater, usa a taxa padrão.
         </p>
-
         <div className="max-h-[50vh] overflow-auto">
           <Table>
             <TableHeader>
@@ -148,7 +146,7 @@ function RegraDialog({
                 <TableHead className="w-24">% Pago max</TableHead>
                 <TableHead className="w-28">Taxa % a.m.</TableHead>
                 <TableHead>Descrição</TableHead>
-                <TableHead className="w-10"></TableHead>
+                <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -182,42 +180,27 @@ function RegraDialog({
                   </TableCell>
                   <TableCell>
                     <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={1}
-                      placeholder="0"
+                      type="number" min={0} max={100} step={1} placeholder="0"
                       value={r.pago_min ?? ''}
                       onChange={(e) =>
-                        updateRegra(r._key, {
-                          pago_min: e.target.value === '' ? null : Number(e.target.value),
-                        })
+                        updateRegra(r._key, { pago_min: e.target.value === '' ? null : Number(e.target.value) })
                       }
                       className="h-8 w-20 text-right tabular-nums"
                     />
                   </TableCell>
                   <TableCell>
                     <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={1}
-                      placeholder="100"
+                      type="number" min={0} max={100} step={1} placeholder="100"
                       value={r.pago_max ?? ''}
                       onChange={(e) =>
-                        updateRegra(r._key, {
-                          pago_max: e.target.value === '' ? null : Number(e.target.value),
-                        })
+                        updateRegra(r._key, { pago_max: e.target.value === '' ? null : Number(e.target.value) })
                       }
                       className="h-8 w-20 text-right tabular-nums"
                     />
                   </TableCell>
                   <TableCell>
                     <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.01}
+                      type="number" min={0} max={100} step={0.01}
                       value={r.taxa}
                       onChange={(e) => updateRegra(r._key, { taxa: Number(e.target.value) })}
                       className="h-8 w-24 text-right tabular-nums"
@@ -233,8 +216,7 @@ function RegraDialog({
                   </TableCell>
                   <TableCell>
                     <Button
-                      size="icon"
-                      variant="ghost"
+                      size="icon" variant="ghost"
                       className="h-7 w-7 text-destructive hover:text-destructive"
                       onClick={() => removeRegra(r._key)}
                     >
@@ -246,15 +228,11 @@ function RegraDialog({
             </TableBody>
           </Table>
         </div>
-
         <Button variant="outline" size="sm" onClick={addRegra} className="w-fit">
           <Plus className="h-3.5 w-3.5" /> Adicionar regra
         </Button>
-
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>
-            Fechar
-          </Button>
+          <Button variant="outline" onClick={onClose} disabled={saving}>Fechar</Button>
           <Button onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Salvar regras
@@ -274,22 +252,29 @@ export default function ConfiguracoesQuitacao() {
 
   const [rows, setRows] = useState<EmpRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogEmp, setDialogEmp] = useState<Empreendimento | null>(null);
+  const [dialogNome, setDialogNome] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
-        const emps = await listEmpreendimentos();
+        // Fonte: empreendimentos reais do Sienge (business_area_name)
+        const nomes = await listEmpreendimentosSienge();
+        // Overlay: configurações salvas no Firestore
+        const configs = await Promise.all(nomes.map((n) => getQuitacaoConfig(n).catch(() => null)));
         if (cancelled) return;
         setRows(
-          emps.map((e) => ({
-            ...e,
-            taxaInput: String(e.taxaJurosQuitacao ?? ''),
-            dirty: false,
-            saving: false,
-          }))
+          nomes.map((nome, i) => {
+            const cfg = configs[i] as QuitacaoConfig | null;
+            return {
+              nome,
+              taxaInput: String(cfg?.taxa_padrao ?? ''),
+              regras: cfg?.regras ?? [],
+              dirty: false,
+              saving: false,
+            };
+          })
         );
       } catch (err: unknown) {
         toast.error(err instanceof Error ? err.message : 'Erro ao carregar empreendimentos');
@@ -300,9 +285,9 @@ export default function ConfiguracoesQuitacao() {
     return () => { cancelled = true; };
   }, []);
 
-  function updateTaxa(id: string, value: string) {
+  function updateTaxa(nome: string, value: string) {
     setRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, taxaInput: value, dirty: true } : r))
+      prev.map((r) => (r.nome === nome ? { ...r, taxaInput: value, dirty: true } : r))
     );
   }
 
@@ -312,29 +297,25 @@ export default function ConfiguracoesQuitacao() {
       toast.error('Taxa inválida (0–100)');
       return;
     }
-    setRows((prev) => prev.map((x) => (x.id === r.id ? { ...x, saving: true } : x)));
+    setRows((prev) => prev.map((x) => (x.nome === r.nome ? { ...x, saving: true } : x)));
     try {
-      await upsertEmpreendimento(
-        { ...r, taxaJurosQuitacao: taxa },
+      await saveQuitacaoConfig(
+        { empreendimento: r.nome, taxa_padrao: taxa, regras: r.regras },
         user?.email ?? null
       );
       toast.success(`Salvo: ${r.nome}`);
       setRows((prev) =>
         prev.map((x) =>
-          x.id === r.id ? { ...x, taxaJurosQuitacao: taxa, saving: false, dirty: false } : x
+          x.nome === r.nome ? { ...x, saving: false, dirty: false, taxaInput: String(taxa) } : x
         )
       );
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
-      setRows((prev) => prev.map((x) => (x.id === r.id ? { ...x, saving: false } : x)));
+      setRows((prev) => prev.map((x) => (x.nome === r.nome ? { ...x, saving: false } : x)));
     }
   }
 
-  function onRulesSaved(empId: string, regras: RegraQuitacao[]) {
-    setRows((prev) =>
-      prev.map((r) => (r.id === empId ? { ...r, regrasQuitacao: regras } : r))
-    );
-  }
+  const dialogRow = dialogNome ? rows.find((r) => r.nome === dialogNome) : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -362,7 +343,12 @@ export default function ConfiguracoesQuitacao() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Empreendimentos</CardTitle>
+            <CardTitle className="text-base">
+              Empreendimentos
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                — lista automática do Sienge
+              </span>
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
@@ -379,43 +365,39 @@ export default function ConfiguracoesQuitacao() {
                   <TableRow>
                     <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-8">
                       <Loader2 className="inline h-4 w-4 animate-spin mr-2" />
-                      Carregando empreendimentos…
+                      Carregando empreendimentos do Sienge…
                     </TableCell>
                   </TableRow>
                 )}
                 {!loading && rows.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-8">
-                      Nenhum empreendimento cadastrado. Crie primeiro em Configurações.
+                      Nenhum empreendimento encontrado no Sienge.
                     </TableCell>
                   </TableRow>
                 )}
                 {rows.map((r) => (
-                  <TableRow key={r.id}>
+                  <TableRow key={r.nome}>
                     <TableCell className="font-medium">{r.nome}</TableCell>
                     <TableCell className="text-right">
                       <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
+                        type="number" step="0.01" min="0" max="100"
                         disabled={!canEdit || r.saving}
                         value={r.taxaInput}
-                        onChange={(e) => updateTaxa(r.id, e.target.value)}
+                        onChange={(e) => updateTaxa(r.nome, e.target.value)}
                         className="h-8 w-28 ml-auto tabular-nums text-right"
                       />
                     </TableCell>
                     <TableCell className="text-center">
                       <Button
-                        size="sm"
-                        variant="ghost"
+                        size="sm" variant="ghost"
                         disabled={!canEdit}
-                        onClick={() => setDialogEmp(r)}
+                        onClick={() => setDialogNome(r.nome)}
                         className="gap-1"
                       >
                         <Settings2 className="h-3.5 w-3.5" />
-                        {(r.regrasQuitacao?.length ?? 0) > 0
-                          ? `${r.regrasQuitacao!.length} regra${r.regrasQuitacao!.length > 1 ? 's' : ''}`
+                        {r.regras.length > 0
+                          ? `${r.regras.length} regra${r.regras.length > 1 ? 's' : ''}`
                           : 'Configurar'}
                       </Button>
                     </TableCell>
@@ -439,19 +421,22 @@ export default function ConfiguracoesQuitacao() {
         </Card>
 
         <p className="mt-3 text-[11px] text-muted-foreground">
+          A lista é gerada automaticamente a partir dos empreendimentos presentes no Sienge.
           A taxa padrão é usada quando nenhuma regra específica bater nos critérios do contrato.
-          Regras específicas combinam: status de registro + % do contrato já pago.
         </p>
       </div>
 
-      {dialogEmp && (
+      {dialogRow && (
         <RegraDialog
-          empreendimento={dialogEmp}
-          open={!!dialogEmp}
-          onClose={() => setDialogEmp(null)}
+          nomeEmp={dialogRow.nome}
+          regrasIniciais={dialogRow.regras}
+          open={!!dialogNome}
+          onClose={() => setDialogNome(null)}
           onSaved={(regras) => {
-            onRulesSaved(dialogEmp.id, regras);
-            setDialogEmp(null);
+            setRows((prev) =>
+              prev.map((r) => (r.nome === dialogRow.nome ? { ...r, regras } : r))
+            );
+            setDialogNome(null);
           }}
         />
       )}

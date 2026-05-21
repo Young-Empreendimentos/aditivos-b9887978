@@ -42,6 +42,20 @@ export interface SiengeParcelaRow {
   main_unit: string | null;
 }
 
+/** Retorna todos os nomes de empreendimento distintos presentes nas parcelas */
+export async function listEmpreendimentosSienge(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('sienge_parcelas_receber')
+    .select('business_area_name')
+    .not('business_area_name', 'is', null);
+  if (error) throw error;
+  const names = new Set<string>();
+  for (const row of (data ?? []) as { business_area_name: string | null }[]) {
+    if (row.business_area_name?.trim()) names.add(row.business_area_name.trim());
+  }
+  return Array.from(names).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+}
+
 export async function listEmpresas(): Promise<EmpresaSienge[]> {
   const { data, error } = await supabase.from("mv_empresas").select("company_id, company_name").order("company_name");
   if (error) throw error;

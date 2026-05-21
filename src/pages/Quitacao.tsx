@@ -36,7 +36,7 @@ import {
   type ClienteSienge,
   type ContratoSienge,
 } from '@/lib/sienge';
-import { listEmpreendimentos, type Empreendimento } from '@/lib/empreendimentos';
+import { getQuitacaoConfig, type QuitacaoConfig } from '@/lib/quitacaoConfig';
 import {
   calcularQuitacao,
   ultimoDiaMesAtual,
@@ -70,7 +70,7 @@ const Quitacao = () => {
   // Cálculo
   const [calculating, setCalculating] = useState(false);
   const [resultado, setResultado] = useState<ResultadoQuitacao | null>(null);
-  const [empConf, setEmpConf] = useState<Empreendimento | null>(null);
+  const [empConf, setEmpConf] = useState<QuitacaoConfig | null>(null);
 
   // Ref para debounce de busca de cliente
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -143,26 +143,23 @@ const Quitacao = () => {
       // 2. Dados do contrato (valor total + empreendimento)
       const dadosContrato = await getDadosContrato(selectedContrato.bill_id);
 
-      // 3. Empreendimento para config de taxa
-      const emps = await listEmpreendimentos();
+      // 3. Config de taxa do empreendimento (Firestore quitacao_configuracoes)
       const nomeEmp =
         dadosContrato?.contrato.empreendimento ??
         selectedContrato.business_area_name ??
         '';
-      const emp = emps.find(
-        (e) => e.nome.trim().toLowerCase() === nomeEmp.trim().toLowerCase()
-      );
+      const cfg = await getQuitacaoConfig(nomeEmp);
 
-      if (!emp) {
+      if (!cfg) {
         toast.error(
-          `Empreendimento "${nomeEmp}" não está configurado. Configure a taxa em Configurações > Quitação.`
+          `Empreendimento "${nomeEmp}" sem taxa configurada. Configure em Configurações > Quitação.`
         );
         setCalculating(false);
         return;
       }
-      setEmpConf(emp);
+      setEmpConf(cfg);
 
-      if ((emp.taxaJurosQuitacao ?? 0) === 0 && (emp.regrasQuitacao ?? []).length === 0) {
+      if ((cfg.taxa_padrao ?? 0) === 0 && (cfg.regras ?? []).length === 0) {
         toast.warning(`Taxa de quitação para "${nomeEmp}" é 0%. Verifique as configurações.`);
       }
 
@@ -175,9 +172,18 @@ const Quitacao = () => {
 
       const valorTotalContrato = Number(dadosContrato?.contrato.valor_total ?? 0);
 
-      // 5. Calcular
+      // 5. Montar objeto compatível com calcularQuitacao
+      const empCompat = {
+        id: nomeEmp,
+        nome: nomeEmp,
+        taxaJuros: 0,
+        taxaJurosQuitacao: cfg.taxa_padrao,
+        regrasQuitacao: cfg.regras,
+      };
+
+      // 6. Calcular
       const db = new Date(dataBase + 'T00:00:00');
-      const res = calcularQuitacao(parcelas, db, isRegistrado, valorTotalContrato, emp);
+      const res = calcularQuitacao(parcelas, db, isRegistrado, valorTotalContrato, empCompat);
       setResultado(res);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Erro ao calcular');
@@ -393,7 +399,7 @@ const Quitacao = () => {
                 <CardTitle className="text-base">Resultado</CardTitle>
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="outline">
-                    {empConf.nome}
+                    {empConf.empreendimento}
                   </Badge>
                   <Badge variant="secondary">
                     {resultado.taxaPercent.toFixed(4).replace('.', ',')}% a.m. — {resultado.regraDescricao}
