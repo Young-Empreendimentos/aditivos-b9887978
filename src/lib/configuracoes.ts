@@ -47,6 +47,10 @@ export async function upsertConfiguracao(
     company_id: String(config.company_id),
     company_name: config.company_name,
     taxaJuros: Number(config.taxaJuros) || 0,
+    taxaJurosQuitacao:
+      config.taxaJurosQuitacao === undefined
+        ? undefined
+        : Number(config.taxaJurosQuitacao) || 0,
     templateBase64: config.templateBase64,
     templateName: config.templateName,
     templateSize: config.templateSize,
