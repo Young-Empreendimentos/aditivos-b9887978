@@ -140,7 +140,10 @@ export async function generateDocx(
       if (texts === normalizedPlaceholder) return tableXml;
       if (texts.includes(normalizedPlaceholder)) {
         const remainingText = texts.replace(normalizedPlaceholder, '').trim();
-        return remainingText ? `${ooParagraph(remainingText)}${tableXml}` : tableXml;
+        // Se o texto restante for apenas um título de Quadro (ex: "Quadro 2"),
+        // não duplicar — o título já está embutido no tableXml gerado
+        const isQuadroTitle = /^quadro\s*\d+$/i.test(remainingText);
+        return (remainingText && !isQuadroTitle) ? `${ooParagraph(remainingText)}${tableXml}` : tableXml;
       }
       return paragraph;
     });
@@ -159,14 +162,17 @@ export async function generateDocx(
   docXml = replacePlaceholder(docXml, '{{TABELA_QUADRO_1}}', quadro1Xml);
   docXml = replacePlaceholder(docXml, '{{TABELA_QUADRO_2}}', quadro2Xml);
 
-  // Remove parágrafos do template que contenham APENAS "Quadro 1" ou "Quadro 2"
-  // (os títulos já foram embutidos no XML gerado acima; evita duplicação)
-  const TITULOS_QUADRO = new Set(['quadro 1', 'quadro 2']);
-  docXml = docXml.replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g, (paragraph) => {
-    const txt = Array.from(paragraph.matchAll(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g))
-      .map(m => m[1]).join('').trim().toLowerCase();
-    return TITULOS_QUADRO.has(txt) ? '' : paragraph;
-  });
+  // Remove títulos "Quadro 1" / "Quadro 2" que ficaram APÓS a tabela no template
+  // (ocorre quando o título estava abaixo do placeholder no .docx original)
+  // Não afeta os títulos embutidos ANTES da tabela no XML gerado
+  docXml = docXml.replace(
+    /(<\/w:tbl>)(\s*)(<w:p\b[^>]*>[\s\S]*?<\/w:p>)/g,
+    (match, closeTag, space, para) => {
+      const txt = Array.from(para.matchAll(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g))
+        .map(m => m[1]).join('').trim().toLowerCase();
+      return /^quadro\s*\d+$/.test(txt) ? closeTag + space : match;
+    }
+  );
 
   processedZip.file('word/document.xml', docXml);
 

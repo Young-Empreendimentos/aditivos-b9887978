@@ -149,8 +149,9 @@ export function buildPlaceholders(
     CIDADE_EMPREENDIMENTO: form.cidade_empreendimento,
     UF_EMPREENDIMENTO: form.estado_empreendimento,
     CIDADE_DATA: cidadeData,
-    // {{DATA}} no template = cidade + data (alias direto)
-    DATA: cidadeData,
+    // {{DATA}} no template = apenas a data por extenso
+    // (a cidade/UF já vem impressa no modelo .docx antes do placeholder)
+    DATA: dataRenegociacaoExtenso,
     DATA_RENEGOCIACAO: dataRenegociacaoExtenso,
     DATA_RENEGOCIACAO_EXTENSO: dataRenegociacaoExtenso,
     DATA_EXTENSO: dataRenegociacaoExtenso,
@@ -188,6 +189,8 @@ export function buildPlaceholders(
     ENDERECO_CONJUGE: mostrarConjuge ? enderecoStr(j) : '',
     DATA_CASAMENTO: mostrarConjuge ? fmtDateBR(form.data_casamento) : '',
     // Qualificações completas (parágrafo pronto para o template)
+    // {{QUALIFICACAO}} é o alias direto usado nos modelos .docx
+    QUALIFICACAO: qualificacaoDevedor,
     QUALIFICACAO_COMPRADOR: qualificacaoComprador,
     QUALIFICACAO_CONJUGE: qualificacaoConjuge,
     QUALIFICACAO_DEVEDOR: qualificacaoDevedor,
