@@ -6,6 +6,7 @@ import { Step1 } from '@/components/Step1';
 import { Step2 } from '@/components/Step2';
 import { Step3 } from '@/components/Step3';
 import { Step4 } from '@/components/Step4';
+import { StepDadosContrato } from '@/components/StepDadosContrato';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -13,9 +14,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePermission, ROLE_LABELS } from '@/hooks/usePermission';
 import type { Parcela, NovaParcela, Reforco } from '@/types/contract';
 import type { ClienteSienge, ContratoSienge } from '@/lib/sienge';
+import { emptyDadosContratoForm, type DadosContratoForm } from '@/types/dadosContrato';
 import { toast } from 'sonner';
 
-const STEPS = ['Dados', 'Seleção', 'Simulação', 'Revisão'];
+const STEPS = ['Dados', 'Seleção', 'Simulação', 'Contrato', 'Revisão'];
 
 const ROLE_BADGE_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = {
   admin: 'default',
@@ -59,6 +61,9 @@ const GeradorAditivo = () => {
   const [pmtValue, setPmtValue] = useState(0);
   const [totalJuros, setTotalJuros] = useState(0);
   const [valorTotalRenegociado, setValorTotalRenegociado] = useState(0);
+
+  // Step 4 (Dados do Contrato) state
+  const [dadosForm, setDadosForm] = useState<DadosContratoForm>(emptyDadosContratoForm());
 
   const selectedParcelas = useMemo(
     () => parcelas.filter((p) => selectedIds.has(p.rowIndex)),
@@ -182,6 +187,18 @@ const GeradorAditivo = () => {
         )}
 
         {currentStep === 4 && (
+          <StepDadosContrato
+            billId={selectedContrato?.bill_id ?? null}
+            empreendimentoFallback={selectedContrato?.business_area_name ?? ''}
+            numeroContratoFallback={selectedContrato?.bill_document ?? ''}
+            form={dadosForm}
+            onFormChange={setDadosForm}
+            onBack={() => setCurrentStep(3)}
+            onNext={() => setCurrentStep(5)}
+          />
+        )}
+
+        {currentStep === 5 && (
           <Step4
             templateFile={templateFile}
             allParcelas={parcelas}
@@ -194,7 +211,9 @@ const GeradorAditivo = () => {
             totalJuros={totalJuros}
             valorTotalRenegociado={valorTotalRenegociado}
             pmtValue={pmtValue}
-            onBack={() => setCurrentStep(3)}
+            dadosForm={dadosForm}
+            selectedCliente={selectedCliente}
+            onBack={() => setCurrentStep(4)}
           />
         )}
       </div>

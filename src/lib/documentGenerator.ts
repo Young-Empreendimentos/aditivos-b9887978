@@ -65,7 +65,8 @@ export async function generateDocx(
   novasParcelas: NovaParcela[],
   taxaJuros: number,
   custosAdicionais: number,
-  valorTotalRenegociado: number
+  valorTotalRenegociado: number,
+  extraPlaceholders: Record<string, string> = {}
 ): Promise<Blob> {
   const arrayBuffer = await templateFile.arrayBuffer();
   const zip = new PizZip(arrayBuffer);
@@ -75,9 +76,11 @@ export async function generateDocx(
     paragraphLoop: true,
     linebreaks: true,
     delimiters: { start: '{{', end: '}}' },
+    nullGetter: () => '',
   });
 
   doc.render({
+    ...extraPlaceholders,
     QUADRO_1: '___QUADRO1_PLACEHOLDER___',
     QUADRO_2: '___QUADRO2_PLACEHOLDER___',
     JUROS_ADOTADOS: `${taxaJuros.toFixed(2).replace('.', ',')}% a.m.`,
