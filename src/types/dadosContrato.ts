@@ -19,6 +19,9 @@ export interface ParteForm {
   email: string;
   telefone: string;
   endereco: EnderecoForm;
+  sexo: 'M' | 'F' | '';
+  tipo_documento: string; // RG, CNH, etc.
+  regime_bens: string;    // ex: "comunhão parcial de bens"
 }
 
 export interface DadosContratoForm {
@@ -54,6 +57,9 @@ export function emptyParte(): ParteForm {
     email: "",
     telefone: "",
     endereco: { logradouro: "", numero: "", bairro: "", cidade: "", estado: "", cep: "" },
+    sexo: "",
+    tipo_documento: "RG",
+    regime_bens: "",
   };
 }
 

@@ -40,6 +40,12 @@ const ESTADO_CIVIL_OPTS = [
 
 function parteFromApi(p: ParteContrato | undefined): ParteForm {
   if (!p) return emptyParte();
+  const ec = (p.estado_civil ?? '').toLowerCase();
+  const sexoInferido: 'M' | 'F' | '' =
+    (p as any).sexo === 'F' || (p as any).sexo === 'M' ? (p as any).sexo
+    : ec.endsWith('a') ? 'F'
+    : ec ? 'M'
+    : '';
   return {
     nome: p.nome ?? '',
     cpf: p.cpf ?? '',
@@ -59,6 +65,9 @@ function parteFromApi(p: ParteContrato | undefined): ParteForm {
       estado: p.endereco?.estado ?? '',
       cep: p.endereco?.cep ?? '',
     },
+    sexo: sexoInferido,
+    tipo_documento: 'RG',
+    regime_bens: '',
   };
 }
 
@@ -278,8 +287,19 @@ function ParteFields({
         <Field label="CPF">
           <Input value={parte.cpf} onChange={(e) => onChange({ cpf: e.target.value })} />
         </Field>
+        <Field label="Sexo">
+          <Select value={parte.sexo} onValueChange={(v) => onChange({ sexo: v as 'M' | 'F' })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="M">Masculino</SelectItem>
+              <SelectItem value="F">Feminino</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
         <Field label="Nacionalidade">
-          <Input value={parte.nacionalidade} onChange={(e) => onChange({ nacionalidade: e.target.value })} />
+          <Input value={parte.nacionalidade} onChange={(e) => onChange({ nacionalidade: e.target.value })} placeholder="brasileiro / brasileira" />
         </Field>
         <Field label="Estado civil">
           <Select value={parte.estado_civil} onValueChange={(v) => onChange({ estado_civil: v })}>
@@ -295,16 +315,30 @@ function ParteFields({
             </SelectContent>
           </Select>
         </Field>
+        <Field label="Regime de bens (se casado/união)">
+          <Input
+            value={parte.regime_bens}
+            onChange={(e) => onChange({ regime_bens: e.target.value })}
+            placeholder="comunhão parcial de bens"
+          />
+        </Field>
         <Field label="Profissão">
           <Input value={parte.profissao} onChange={(e) => onChange({ profissao: e.target.value })} />
         </Field>
-        <Field label="RG">
+        <Field label="Tipo de documento">
+          <Input
+            value={parte.tipo_documento}
+            onChange={(e) => onChange({ tipo_documento: e.target.value })}
+            placeholder="RG / CNH / Carteira de Habilitação"
+          />
+        </Field>
+        <Field label="Nº do documento">
           <Input value={parte.rg} onChange={(e) => onChange({ rg: e.target.value })} />
         </Field>
         <Field label="Órgão emissor">
-          <Input value={parte.orgao_emissor} onChange={(e) => onChange({ orgao_emissor: e.target.value })} />
+          <Input value={parte.orgao_emissor} onChange={(e) => onChange({ orgao_emissor: e.target.value })} placeholder="SSP/RS, DETRAN/RS..." />
         </Field>
-        <Field label="Data de emissão do RG">
+        <Field label="Data de emissão">
           <Input
             type="date"
             value={(parte.data_emissao_rg ?? '').slice(0, 10)}
@@ -318,6 +352,7 @@ function ParteFields({
           <Input value={parte.telefone} onChange={(e) => onChange({ telefone: e.target.value })} />
         </Field>
       </div>
+
 
       <div>
         <p className="text-xs font-semibold text-muted-foreground mb-2">Endereço</p>
