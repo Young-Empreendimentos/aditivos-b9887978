@@ -149,11 +149,6 @@ export default function Configuracoes() {
       toast.error('Taxa de aditivo inválida (0–100)');
       return;
     }
-    const taxaQ = Number(r.taxaJurosQuitacao);
-    if (!Number.isFinite(taxaQ) || taxaQ < 0 || taxaQ > 100) {
-      toast.error('Taxa de quitação inválida (0–100)');
-      return;
-    }
     setRows((prev) => prev.map((x) => (x.company_id === r.company_id ? { ...x, saving: true } : x)));
     try {
       let templateBase64: string | undefined;
