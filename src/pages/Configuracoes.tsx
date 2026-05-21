@@ -243,7 +243,8 @@ export default function Configuracoes() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Empresa</TableHead>
-                  <TableHead className="w-36 text-right">Taxa (% a.m.)</TableHead>
+                  <TableHead className="w-32 text-right">Juros Aditivo (% a.m.)</TableHead>
+                  <TableHead className="w-32 text-right">Juros Quitação (% a.m.)</TableHead>
                   <TableHead>Modelo (.docx)</TableHead>
                   <TableHead className="w-32">Status</TableHead>
                   <TableHead className="w-28 text-right">Ações</TableHead>
@@ -252,7 +253,7 @@ export default function Configuracoes() {
               <TableBody>
                 {loading && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                    <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
                       <Loader2 className="inline h-4 w-4 animate-spin mr-2" /> Carregando empresas…
                     </TableCell>
                   </TableRow>
