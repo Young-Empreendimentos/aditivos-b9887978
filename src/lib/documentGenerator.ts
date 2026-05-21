@@ -61,8 +61,7 @@ function buildQuadro1Xml(parcelas: Parcela[]): string {
 
   const total = parcelas.reduce((s, p) => s + p.saldoAtual, 0);
   const totalRow = ooRow([ooCell('Total', true, 'center'), ooCell('', false, 'center'), ooCell(formatCurrency(total), true, 'right')]);
-  // Título sempre ANTES da tabela, embutido no XML gerado
-  return ooParagraphBold('Quadro 1', 'left') + buildTblXml(`${headerRow}${dataRows.join('')}${totalRow}`);
+  return buildTblXml(`${headerRow}${dataRows.join('')}${totalRow}`);
 }
 
 function buildQuadro2Xml(parcelas: NovaParcela[]): string {
@@ -78,8 +77,7 @@ function buildQuadro2Xml(parcelas: NovaParcela[]): string {
   ]));
   const total = parcelas.reduce((s, p) => s + p.valor, 0);
   const totalRow = ooRow([ooCell('Total', true, 'center'), ooCell('', false, 'center'), ooCell(formatCurrency(total), true, 'right')]);
-  // Título sempre ANTES da tabela, embutido no XML gerado
-  return ooParagraphBold('Quadro 2', 'left') + buildTblXml(`${headerRow}${dataRows.join('')}${totalRow}`);
+  return buildTblXml(`${headerRow}${dataRows.join('')}${totalRow}`);
 }
 
 export async function generateDocx(
@@ -140,10 +138,14 @@ export async function generateDocx(
       if (texts === normalizedPlaceholder) return tableXml;
       if (texts.includes(normalizedPlaceholder)) {
         const remainingText = texts.replace(normalizedPlaceholder, '').trim();
-        // Se o texto restante for apenas um título de Quadro (ex: "Quadro 2"),
-        // não duplicar — o título já está embutido no tableXml gerado
+        // Se o texto restante for um título de Quadro, gerar parágrafo bold/centralizado ANTES da tabela
         const isQuadroTitle = /^quadro\s*\d+$/i.test(remainingText);
-        return (remainingText && !isQuadroTitle) ? `${ooParagraph(remainingText)}${tableXml}` : tableXml;
+        if (remainingText) {
+          return isQuadroTitle
+            ? `${ooParagraphBold(remainingText, 'center')}${tableXml}`
+            : `${ooParagraph(remainingText)}${tableXml}`;
+        }
+        return tableXml;
       }
       return paragraph;
     });
@@ -162,15 +164,14 @@ export async function generateDocx(
   docXml = replacePlaceholder(docXml, '{{TABELA_QUADRO_1}}', quadro1Xml);
   docXml = replacePlaceholder(docXml, '{{TABELA_QUADRO_2}}', quadro2Xml);
 
-  // Remove títulos "Quadro 1" / "Quadro 2" que ficaram APÓS a tabela no template
-  // (ocorre quando o título estava abaixo do placeholder no .docx original)
-  // Não afeta os títulos embutidos ANTES da tabela no XML gerado
+  // Reposicionar títulos "Quadro 1" / "Quadro 2" que ficaram APÓS a tabela no template
+  // para ANTES dela — preserva o parágrafo original do template com sua formatação
   docXml = docXml.replace(
-    /(<\/w:tbl>)(\s*)(<w:p\b[^>]*>[\s\S]*?<\/w:p>)/g,
-    (match, closeTag, space, para) => {
+    /(<w:tbl\b[\s\S]*?<\/w:tbl>)(\s*)(<w:p\b[^>]*>[\s\S]*?<\/w:p>)/g,
+    (match, tableXml, space, para) => {
       const txt = Array.from(para.matchAll(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g))
         .map(m => m[1]).join('').trim().toLowerCase();
-      return /^quadro\s*\d+$/.test(txt) ? closeTag + space : match;
+      return /^quadro\s*\d+$/.test(txt) ? para + space + tableXml : match;
     }
   );
 
