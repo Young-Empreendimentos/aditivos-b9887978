@@ -4,7 +4,10 @@ import { db, auth } from './firebase';
 export interface ConfiguracaoEmpresa {
   company_id: string;
   company_name: string;
+  /** Taxa de juros usada nos aditivos (% a.m.) */
   taxaJuros: number;
+  /** Taxa de juros usada nas quitações (% a.m.) */
+  taxaJurosQuitacao?: number;
   /** Template .docx em base64 (o arquivo já deve vir comprimido pelo usuário) */
   templateBase64?: string;
   templateName?: string;
@@ -44,6 +47,10 @@ export async function upsertConfiguracao(
     company_id: String(config.company_id),
     company_name: config.company_name,
     taxaJuros: Number(config.taxaJuros) || 0,
+    taxaJurosQuitacao:
+      config.taxaJurosQuitacao === undefined
+        ? undefined
+        : Number(config.taxaJurosQuitacao) || 0,
     templateBase64: config.templateBase64,
     templateName: config.templateName,
     templateSize: config.templateSize,
