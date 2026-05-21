@@ -20,7 +20,7 @@ interface Step2Props {
 }
 
 export function Step2({ parcelas, selectedIds, onSelectionChange, onNext, onBack }: Step2Props) {
-  const selectableParcelas = useMemo(() => parcelas.filter((p) => !p.isEntrada), [parcelas]);
+  const selectableParcelas = useMemo(() => parcelas, [parcelas]);
 
   const allSelected = selectableParcelas.length > 0 && selectableParcelas.every((p) => selectedIds.has(p.rowIndex));
 
@@ -78,29 +78,23 @@ export function Step2({ parcelas, selectedIds, onSelectionChange, onNext, onBack
                 {parcelas.map((p) => (
                   <TableRow
                     key={p.rowIndex}
-                    className={p.isEntrada ? 'opacity-50' : selectedIds.has(p.rowIndex) ? 'bg-primary/5' : ''}
+                    className={selectedIds.has(p.rowIndex) ? 'bg-primary/5' : ''}
                   >
                     <TableCell>
-                      {!p.isEntrada && (
-                        <Checkbox
-                          checked={selectedIds.has(p.rowIndex)}
-                          onCheckedChange={() => toggle(p.rowIndex)}
-                        />
-                      )}
+                      <Checkbox
+                        checked={selectedIds.has(p.rowIndex)}
+                        onCheckedChange={() => toggle(p.rowIndex)}
+                      />
                     </TableCell>
                     <TableCell className="tabular-nums font-medium">
-                      {p.isEntrada ? '—' : String(p.numero).padStart(2, '0')}
+                      {String(p.numero).padStart(2, '0')}
                     </TableCell>
                     <TableCell className="tabular-nums">
                       {format(p.dataVencimento, 'dd/MM/yyyy', { locale: ptBR })}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{formatCurrency(p.valorOriginal)}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatCurrency(p.saldoAtual)}</TableCell>
-                    <TableCell>
-                      {p.isEntrada ? (
-                        <Badge variant="secondary">Entrada</Badge>
-                      ) : null}
-                    </TableCell>
+                    <TableCell />
                   </TableRow>
                 ))}
               </TableBody>

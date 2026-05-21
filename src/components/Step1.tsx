@@ -81,12 +81,11 @@ function mapRowsToParcelas(rows: SiengeParcelaRow[]): Parcela[] {
     .filter((p): p is Parcela => p !== null);
 
   parcelas.sort((a, b) => a.dataVencimento.getTime() - b.dataVencimento.getTime());
-  if (parcelas.length > 0) {
-    parcelas[0].isEntrada = true;
-    parcelas[0].numero = 0;
-    let n = 1;
-    for (let i = 1; i < parcelas.length; i++) parcelas[i].numero = n++;
-  }
+  // Todas as parcelas entram para renegociação — nenhuma é tratada como entrada
+  parcelas.forEach((p, i) => {
+    p.isEntrada = false;
+    p.numero = i + 1;
+  });
   return parcelas;
 }
 

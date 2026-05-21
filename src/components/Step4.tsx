@@ -39,8 +39,8 @@ export function Step4({
 }: Step4Props) {
   const [generating, setGenerating] = useState(false);
 
-  // Quadro 1: parcelas selecionadas para renegociação + não pagas (saldo > 0), exceto entrada
-  const quadro1 = allParcelas.filter(p => !p.isEntrada && (selectedIds.has(p.rowIndex) || p.saldoAtual > 0));
+  // Quadro 1: todas as parcelas com saldo > 0 (incluindo as selecionadas para renegociação)
+  const quadro1 = allParcelas.filter(p => selectedIds.has(p.rowIndex) || p.saldoAtual > 0);
 
   const sanitize = (s: string) => s.replace(/[\\/:*?"<>|]+/g, '_').trim() || 'documento';
   const fileName = `Aditivo_${sanitize(dadosForm.numero_contrato || 'contrato')}_${sanitize(selectedCliente?.client_name ?? dadosForm.comprador.nome ?? '')}.docx`;

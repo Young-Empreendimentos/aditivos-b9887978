@@ -43,9 +43,9 @@ export function Step3({
   const [reforcoValor, setReforcoValor] = useState('');
   const [manualNumeros, setManualNumeros] = useState<number[] | null>(null);
 
-  // Parcelas não selecionadas (mantidas) — excluindo entrada
+  // Parcelas não selecionadas (mantidas)
   const parcelasMantidas = useMemo(
-    () => parcelas.filter(p => !p.isEntrada && !selectedIds.has(p.rowIndex)),
+    () => parcelas.filter(p => !selectedIds.has(p.rowIndex)),
     [parcelas, selectedIds]
   );
 
