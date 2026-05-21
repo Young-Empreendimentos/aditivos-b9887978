@@ -8,7 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
 import { generateDocx, downloadDocx, generateAndDownloadPdf } from '@/lib/documentGenerator';
+import { buildPlaceholders } from '@/lib/placeholders';
 import type { Parcela, NovaParcela } from '@/types/contract';
+import type { DadosContratoForm } from '@/types/dadosContrato';
+import type { ClienteSienge } from '@/lib/sienge';
 import { toast } from 'sonner';
 
 interface Step4Props {
@@ -23,17 +26,23 @@ interface Step4Props {
   totalJuros: number;
   valorTotalRenegociado: number;
   pmtValue: number;
+  dadosForm: DadosContratoForm;
+  selectedCliente: ClienteSienge | null;
   onBack: () => void;
 }
 
 export function Step4({
   templateFile, allParcelas, selectedParcelas, selectedIds, novasParcelas,
-  taxaJuros, custosAdicionais, pvTotal, totalJuros, valorTotalRenegociado, pmtValue, onBack
+  taxaJuros, custosAdicionais, pvTotal, totalJuros, valorTotalRenegociado, pmtValue,
+  dadosForm, selectedCliente, onBack
 }: Step4Props) {
   const [generating, setGenerating] = useState(false);
 
   // Quadro 1: parcelas selecionadas para renegociação + não pagas (saldo > 0), exceto entrada
   const quadro1 = allParcelas.filter(p => !p.isEntrada && (selectedIds.has(p.rowIndex) || p.saldoAtual > 0));
+
+  const sanitize = (s: string) => s.replace(/[\\/:*?"<>|]+/g, '_').trim() || 'documento';
+  const fileName = `Aditivo_${sanitize(dadosForm.numero_contrato || 'contrato')}_${sanitize(selectedCliente?.client_name ?? dadosForm.comprador.nome ?? '')}.docx`;
 
   const handleGenerateDocx = async () => {
     if (!templateFile) {
@@ -42,8 +51,9 @@ export function Step4({
     }
     setGenerating(true);
     try {
-      const blob = await generateDocx(templateFile, quadro1, novasParcelas, taxaJuros, custosAdicionais, valorTotalRenegociado);
-      downloadDocx(blob, 'aditivo_contratual.docx');
+      const placeholders = buildPlaceholders(dadosForm);
+      const blob = await generateDocx(templateFile, quadro1, novasParcelas, taxaJuros, custosAdicionais, valorTotalRenegociado, placeholders);
+      downloadDocx(blob, fileName);
       toast.success('Documento .docx gerado com sucesso!');
     } catch (err: any) {
       toast.error(`Erro ao gerar .docx: ${err.message}`);
