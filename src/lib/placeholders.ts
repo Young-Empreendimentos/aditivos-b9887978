@@ -42,6 +42,75 @@ function fmtValor(s: string): string {
   return fmtCurrency(n);
 }
 
+function genderWord(sexo: string, m: string, f: string) {
+  return sexo === 'F' ? f : m;
+}
+
+/**
+ * Compõe a qualificação completa de uma parte no estilo do contrato:
+ * "NOME, brasileiro, maior, profissão, casado em comunhão parcial de bens no dia 30/12/2005,
+ *  inscrito no CPF n° X e RG nº Y, expedida pelo SSP-RS em DD/MM/YYYY, residente e domiciliado
+ *  na Rua X, nº N, bairro B, Cidade/UF, e-mail: a@b e telefone: 99 9999-9999"
+ */
+function qualificacaoStr(p: ParteForm, dataCasamentoIso?: string): string {
+  if (!p.nome) return '';
+  const sexo = p.sexo || 'M';
+  const inscrito = genderWord(sexo, 'inscrito', 'inscrita');
+  const residente = genderWord(sexo, 'residente e domiciliado', 'residente e domiciliada');
+
+  const partes: string[] = [];
+  partes.push(p.nome.toUpperCase());
+  if (p.nacionalidade) partes.push(p.nacionalidade);
+  partes.push('maior');
+  if (p.profissao) partes.push(p.profissao);
+
+  // estado civil + regime + data casamento
+  const ec = p.estado_civil || '';
+  if (ec) {
+    const ecBase = ec === 'Casado(a)'
+      ? genderWord(sexo, 'casado', 'casada')
+      : ec === 'Solteiro(a)'
+        ? genderWord(sexo, 'solteiro', 'solteira')
+        : ec === 'Divorciado(a)'
+          ? genderWord(sexo, 'divorciado', 'divorciada')
+          : ec === 'Viúvo(a)'
+            ? genderWord(sexo, 'viúvo', 'viúva')
+            : ec; // União Estável etc.
+    let ecTxt = ecBase;
+    if ((ec === 'Casado(a)' || ec === 'União Estável') && p.regime_bens) {
+      ecTxt += ` em ${p.regime_bens}`;
+    }
+    if ((ec === 'Casado(a)' || ec === 'União Estável') && dataCasamentoIso) {
+      ecTxt += ` no dia ${fmtDateShort(dataCasamentoIso)}`;
+    }
+    partes.push(ecTxt);
+  }
+
+  // Documentos
+  const docPieces: string[] = [];
+  if (p.cpf) docPieces.push(`${inscrito} no CPF nº ${p.cpf}`);
+  if (p.rg) {
+    const tipo = p.tipo_documento || 'RG';
+    let docStr = `${tipo} nº ${p.rg}`;
+    if (p.orgao_emissor) docStr += `, expedida pelo ${p.orgao_emissor}`;
+    if (p.data_emissao_rg) docStr += ` em ${fmtDateShort(p.data_emissao_rg)}`;
+    docPieces.push(docStr);
+  }
+  if (docPieces.length) partes.push(docPieces.join(' e '));
+
+  // Endereço
+  const end = enderecoStr(p);
+  if (end) partes.push(`${residente} na ${end}`);
+
+  // Contato
+  const contato: string[] = [];
+  if (p.email) contato.push(`e-mail: ${p.email}`);
+  if (p.telefone) contato.push(`telefone: ${p.telefone}`);
+  if (contato.length) partes.push(contato.join(' e '));
+
+  return partes.join(', ');
+}
+
 export function buildPlaceholders(
   form: DadosContratoForm,
   opts: { dataRenegociacao?: Date | null } = {}
@@ -98,5 +167,11 @@ export function buildPlaceholders(
     TELEFONE_CONJUGE: mostrarConjuge ? j.telefone : '',
     ENDERECO_CONJUGE: mostrarConjuge ? enderecoStr(j) : '',
     DATA_CASAMENTO: mostrarConjuge ? fmtDateBR(form.data_casamento) : '',
+    // Qualificações completas (parágrafo pronto para o template)
+    QUALIFICACAO_COMPRADOR: qualificacaoStr(c, form.data_casamento),
+    QUALIFICACAO_CONJUGE: mostrarConjuge ? qualificacaoStr(j, form.data_casamento) : '',
+    QUALIFICACAO_DEVEDOR: mostrarConjuge && j.nome
+      ? `${qualificacaoStr(c, form.data_casamento)}, e ${qualificacaoStr(j, form.data_casamento)}`
+      : qualificacaoStr(c, form.data_casamento),
   };
 }
