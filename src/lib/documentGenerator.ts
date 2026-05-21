@@ -36,6 +36,16 @@ function ooParagraph(text: string): string {
   return `<w:p><w:r><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r></w:p>`;
 }
 
+function ooParagraphBold(text: string, align: 'left' | 'center' | 'right' = 'left'): string {
+  const jc = align === 'center' ? 'center' : align === 'right' ? 'end' : 'start';
+  return `<w:p><w:pPr><w:jc w:val="${jc}"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r></w:p>`;
+}
+
+function buildTblXml(rows: string): string {
+  const tblBorders = '<w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:left w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:right w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="999999"/></w:tblBorders>';
+  return `<w:tbl><w:tblPr><w:tblStyle w:val="TableGrid"/><w:tblW w:w="5000" w:type="pct"/><w:jc w:val="center"/>${tblBorders}</w:tblPr>${rows}</w:tbl>`;
+}
+
 function buildQuadro1Xml(parcelas: Parcela[]): string {
   const headerRow = ooRow([
     ooCell('Nº Parcela', true, 'center'),
@@ -51,8 +61,8 @@ function buildQuadro1Xml(parcelas: Parcela[]): string {
 
   const total = parcelas.reduce((s, p) => s + p.saldoAtual, 0);
   const totalRow = ooRow([ooCell('Total', true, 'center'), ooCell('', false, 'center'), ooCell(formatCurrency(total), true, 'right')]);
-  const tblBorders = '<w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:left w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:right w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="999999"/></w:tblBorders>';
-  return `<w:tbl><w:tblPr><w:tblStyle w:val="TableGrid"/><w:tblW w:w="5000" w:type="pct"/><w:jc w:val="center"/>${tblBorders}</w:tblPr>${headerRow}${dataRows.join('')}${totalRow}</w:tbl>`;
+  // Título sempre ANTES da tabela, embutido no XML gerado
+  return ooParagraphBold('Quadro 1', 'left') + buildTblXml(`${headerRow}${dataRows.join('')}${totalRow}`);
 }
 
 function buildQuadro2Xml(parcelas: NovaParcela[]): string {
@@ -68,8 +78,8 @@ function buildQuadro2Xml(parcelas: NovaParcela[]): string {
   ]));
   const total = parcelas.reduce((s, p) => s + p.valor, 0);
   const totalRow = ooRow([ooCell('Total', true, 'center'), ooCell('', false, 'center'), ooCell(formatCurrency(total), true, 'right')]);
-  const tblBorders = '<w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:left w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:right w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="999999"/></w:tblBorders>';
-  return `<w:tbl><w:tblPr><w:tblStyle w:val="TableGrid"/><w:tblW w:w="5000" w:type="pct"/><w:jc w:val="center"/>${tblBorders}</w:tblPr>${headerRow}${dataRows.join('')}${totalRow}</w:tbl>`;
+  // Título sempre ANTES da tabela, embutido no XML gerado
+  return ooParagraphBold('Quadro 2', 'left') + buildTblXml(`${headerRow}${dataRows.join('')}${totalRow}`);
 }
 
 export async function generateDocx(
@@ -148,6 +158,15 @@ export async function generateDocx(
   docXml = replacePlaceholder(docXml, '{{QUADRO2}}', quadro2Xml);
   docXml = replacePlaceholder(docXml, '{{TABELA_QUADRO_1}}', quadro1Xml);
   docXml = replacePlaceholder(docXml, '{{TABELA_QUADRO_2}}', quadro2Xml);
+
+  // Remove parágrafos do template que contenham APENAS "Quadro 1" ou "Quadro 2"
+  // (os títulos já foram embutidos no XML gerado acima; evita duplicação)
+  const TITULOS_QUADRO = new Set(['quadro 1', 'quadro 2']);
+  docXml = docXml.replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g, (paragraph) => {
+    const txt = Array.from(paragraph.matchAll(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g))
+      .map(m => m[1]).join('').trim().toLowerCase();
+    return TITULOS_QUADRO.has(txt) ? '' : paragraph;
+  });
 
   processedZip.file('word/document.xml', docXml);
 

@@ -144,10 +144,13 @@ export function buildPlaceholders(
     LOTE: form.num_lote,
     AREA: form.area,
     MATRICULA: form.matricula,
+    MATRICULA_ORIGEM: form.matricula_origem,
     ONUS: form.onus,
     CIDADE_EMPREENDIMENTO: form.cidade_empreendimento,
     UF_EMPREENDIMENTO: form.estado_empreendimento,
     CIDADE_DATA: cidadeData,
+    // {{DATA}} no template = cidade + data (alias direto)
+    DATA: cidadeData,
     DATA_RENEGOCIACAO: dataRenegociacaoExtenso,
     DATA_RENEGOCIACAO_EXTENSO: dataRenegociacaoExtenso,
     DATA_EXTENSO: dataRenegociacaoExtenso,
@@ -189,5 +192,8 @@ export function buildPlaceholders(
     QUALIFICACAO_CONJUGE: qualificacaoConjuge,
     QUALIFICACAO_DEVEDOR: qualificacaoDevedor,
     QUALIFICACAO_DEVEDORES: qualificacaoDevedor,
+    // Assinaturas: nomes isolados para bloco de assinatura de 2 colunas
+    CLIENTE1: c.nome,
+    CLIENTE2: mostrarConjuge ? j.nome : '',
   };
 }
