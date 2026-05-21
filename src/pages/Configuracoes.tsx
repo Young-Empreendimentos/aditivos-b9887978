@@ -180,7 +180,6 @@ export default function Configuracoes() {
                 saving: false,
                 dirty: false,
                 originalTaxa: taxa,
-                originalTaxaQuitacao: taxaQ,
                 hasTemplate: x.hasTemplate || !!templateBase64,
                 templateName,
                 templateSize,
