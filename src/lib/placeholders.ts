@@ -123,11 +123,20 @@ export function buildPlaceholders(
     c.estado_civil === 'União Estável';
 
   let cidadeData = '';
+  let dataRenegociacaoExtenso = '';
   if (opts.dataRenegociacao) {
     const dataFmt = format(opts.dataRenegociacao, "d 'de' MMMM 'de' yyyy", { locale: ptBR });
+    dataRenegociacaoExtenso = dataFmt;
     const cidadeUf = [form.cidade_empreendimento, form.estado_empreendimento].filter(Boolean).join('/');
     cidadeData = cidadeUf ? `${cidadeUf}, ${dataFmt}` : dataFmt;
   }
+
+  const nomeDevedor = mostrarConjuge && j.nome ? `${c.nome} e ${j.nome}` : c.nome;
+  const qualificacaoComprador = qualificacaoStr(c, form.data_casamento);
+  const qualificacaoConjuge = mostrarConjuge ? qualificacaoStr(j, form.data_casamento) : '';
+  const qualificacaoDevedor = mostrarConjuge && j.nome
+    ? `${qualificacaoComprador}, e ${qualificacaoConjuge}`
+    : qualificacaoComprador;
 
   return {
     // Imóvel
@@ -139,12 +148,20 @@ export function buildPlaceholders(
     CIDADE_EMPREENDIMENTO: form.cidade_empreendimento,
     UF_EMPREENDIMENTO: form.estado_empreendimento,
     CIDADE_DATA: cidadeData,
+    DATA_RENEGOCIACAO: dataRenegociacaoExtenso,
+    DATA_RENEGOCIACAO_EXTENSO: dataRenegociacaoExtenso,
+    DATA_EXTENSO: dataRenegociacaoExtenso,
+    DATA_ATUAL: dataRenegociacaoExtenso,
     // Contrato
     NUMERO_CONTRATO: form.numero_contrato,
     DATA_CONTRATO: fmtDateBR(form.data_contrato),
     VALOR_TOTAL: fmtValor(form.valor_total),
     // Comprador
     NOME_COMPRADOR: c.nome,
+    NOME_DEVEDOR: nomeDevedor,
+    NOME_DEVEDORES: nomeDevedor,
+    DEVEDOR: nomeDevedor,
+    DEVEDORES: nomeDevedor,
     CPF_COMPRADOR: c.cpf,
     NACIONALIDADE: c.nacionalidade,
     ESTADO_CIVIL: c.estado_civil,
@@ -168,10 +185,9 @@ export function buildPlaceholders(
     ENDERECO_CONJUGE: mostrarConjuge ? enderecoStr(j) : '',
     DATA_CASAMENTO: mostrarConjuge ? fmtDateBR(form.data_casamento) : '',
     // Qualificações completas (parágrafo pronto para o template)
-    QUALIFICACAO_COMPRADOR: qualificacaoStr(c, form.data_casamento),
-    QUALIFICACAO_CONJUGE: mostrarConjuge ? qualificacaoStr(j, form.data_casamento) : '',
-    QUALIFICACAO_DEVEDOR: mostrarConjuge && j.nome
-      ? `${qualificacaoStr(c, form.data_casamento)}, e ${qualificacaoStr(j, form.data_casamento)}`
-      : qualificacaoStr(c, form.data_casamento),
+    QUALIFICACAO_COMPRADOR: qualificacaoComprador,
+    QUALIFICACAO_CONJUGE: qualificacaoConjuge,
+    QUALIFICACAO_DEVEDOR: qualificacaoDevedor,
+    QUALIFICACAO_DEVEDORES: qualificacaoDevedor,
   };
 }
