@@ -277,7 +277,12 @@ export default function ConfiguracoesQuitacao() {
           })
         );
       } catch (err: unknown) {
-        toast.error(err instanceof Error ? err.message : 'Erro ao carregar empreendimentos');
+        const msg =
+          err instanceof Error
+            ? err.message
+            : (err as { message?: string })?.message ?? 'Erro ao carregar empreendimentos';
+        console.error('[ConfiguracoesQuitacao] erro:', err);
+        toast.error(msg);
       } finally {
         if (!cancelled) setLoading(false);
       }

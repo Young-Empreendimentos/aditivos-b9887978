@@ -47,8 +47,13 @@ export async function listEmpreendimentosSienge(): Promise<string[]> {
   const { data, error } = await supabase
     .from('sienge_parcelas_receber')
     .select('business_area_name')
-    .not('business_area_name', 'is', null);
-  if (error) throw error;
+    .not('business_area_name', 'is', null)
+    .gt('current_balance', 0)
+    .limit(5000);
+  if (error) {
+    console.error('[listEmpreendimentosSienge] Supabase error:', error);
+    throw new Error(error.message ?? 'Erro ao consultar empreendimentos no Supabase');
+  }
   const names = new Set<string>();
   for (const row of (data ?? []) as { business_area_name: string | null }[]) {
     if (row.business_area_name?.trim()) names.add(row.business_area_name.trim());
