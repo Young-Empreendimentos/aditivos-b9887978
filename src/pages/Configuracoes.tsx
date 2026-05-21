@@ -28,8 +28,6 @@ interface Row {
   company_name: string;
   taxaJuros: string;
   originalTaxa: number;
-  taxaJurosQuitacao: string;
-  originalTaxaQuitacao: number;
   hasTemplate: boolean; // só indica presença; o base64 não fica no state
   templateName?: string;
   templateSize?: number;
