@@ -4,7 +4,10 @@ import { db, auth } from './firebase';
 export interface ConfiguracaoEmpresa {
   company_id: string;
   company_name: string;
+  /** Taxa de juros usada nos aditivos (% a.m.) */
   taxaJuros: number;
+  /** Taxa de juros usada nas quitações (% a.m.) */
+  taxaJurosQuitacao?: number;
   /** Template .docx em base64 (o arquivo já deve vir comprimido pelo usuário) */
   templateBase64?: string;
   templateName?: string;
