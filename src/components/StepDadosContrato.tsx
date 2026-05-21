@@ -40,6 +40,12 @@ const ESTADO_CIVIL_OPTS = [
 
 function parteFromApi(p: ParteContrato | undefined): ParteForm {
   if (!p) return emptyParte();
+  const ec = (p.estado_civil ?? '').toLowerCase();
+  const sexoInferido: 'M' | 'F' | '' =
+    (p as any).sexo === 'F' || (p as any).sexo === 'M' ? (p as any).sexo
+    : ec.endsWith('a') ? 'F'
+    : ec ? 'M'
+    : '';
   return {
     nome: p.nome ?? '',
     cpf: p.cpf ?? '',
@@ -59,6 +65,9 @@ function parteFromApi(p: ParteContrato | undefined): ParteForm {
       estado: p.endereco?.estado ?? '',
       cep: p.endereco?.cep ?? '',
     },
+    sexo: sexoInferido,
+    tipo_documento: 'RG',
+    regime_bens: '',
   };
 }
 
