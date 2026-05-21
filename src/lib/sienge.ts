@@ -42,21 +42,21 @@ export interface SiengeParcelaRow {
   main_unit: string | null;
 }
 
-/** Retorna todos os nomes de empreendimento distintos presentes nas parcelas */
+/** Retorna todos os empreendimentos distintos a partir de sienge_contratos_de_vendas
+ *  (uma linha por contrato — muito menor que sienge_parcelas_receber) */
 export async function listEmpreendimentosSienge(): Promise<string[]> {
   const { data, error } = await supabase
-    .from('sienge_parcelas_receber')
-    .select('business_area_name')
-    .not('business_area_name', 'is', null)
-    .gt('current_balance', 0)
-    .limit(5000);
+    .from('sienge_contratos_de_vendas')
+    .select('enterprise_name')
+    .not('enterprise_name', 'is', null)
+    .limit(2000);
   if (error) {
     console.error('[listEmpreendimentosSienge] Supabase error:', error);
     throw new Error(error.message ?? 'Erro ao consultar empreendimentos no Supabase');
   }
   const names = new Set<string>();
-  for (const row of (data ?? []) as { business_area_name: string | null }[]) {
-    if (row.business_area_name?.trim()) names.add(row.business_area_name.trim());
+  for (const row of (data ?? []) as { enterprise_name: string | null }[]) {
+    if (row.enterprise_name?.trim()) names.add(row.enterprise_name.trim());
   }
   return Array.from(names).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 }
