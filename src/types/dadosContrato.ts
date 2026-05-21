@@ -28,6 +28,8 @@ export interface DadosContratoForm {
   area: string;
   matricula: string;
   onus: string;
+  cidade_empreendimento: string;
+  estado_empreendimento: string;
   // Contrato (de Step1/Step2)
   numero_contrato: string;
   data_contrato: string; // ISO yyyy-mm-dd
@@ -62,6 +64,8 @@ export function emptyDadosContratoForm(): DadosContratoForm {
     area: "",
     matricula: "",
     onus: "",
+    cidade_empreendimento: "",
+    estado_empreendimento: "",
     numero_contrato: "",
     data_contrato: "",
     valor_total: "",

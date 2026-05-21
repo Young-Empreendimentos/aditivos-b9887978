@@ -42,13 +42,24 @@ function fmtValor(s: string): string {
   return fmtCurrency(n);
 }
 
-export function buildPlaceholders(form: DadosContratoForm): Record<string, string> {
+export function buildPlaceholders(
+  form: DadosContratoForm,
+  opts: { dataRenegociacao?: Date | null } = {}
+): Record<string, string> {
   const c = form.comprador;
   const j = form.conjuge;
   const mostrarConjuge =
     form.temConjuge ||
     c.estado_civil === 'Casado(a)' ||
     c.estado_civil === 'União Estável';
+
+  let cidadeData = '';
+  if (opts.dataRenegociacao) {
+    const dataFmt = format(opts.dataRenegociacao, "d 'de' MMMM 'de' yyyy", { locale: ptBR });
+    const cidadeUf = [form.cidade_empreendimento, form.estado_empreendimento].filter(Boolean).join('/');
+    cidadeData = cidadeUf ? `${cidadeUf}, ${dataFmt}` : dataFmt;
+  }
+
   return {
     // Imóvel
     EMPREENDIMENTO: form.empreendimento,
@@ -56,6 +67,9 @@ export function buildPlaceholders(form: DadosContratoForm): Record<string, strin
     AREA: form.area,
     MATRICULA: form.matricula,
     ONUS: form.onus,
+    CIDADE_EMPREENDIMENTO: form.cidade_empreendimento,
+    UF_EMPREENDIMENTO: form.estado_empreendimento,
+    CIDADE_DATA: cidadeData,
     // Contrato
     NUMERO_CONTRATO: form.numero_contrato,
     DATA_CONTRATO: fmtDateBR(form.data_contrato),
