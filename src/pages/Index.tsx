@@ -48,12 +48,20 @@ const Index = () => {
               </div>
             )}
             {isCoordinator && (
-              <Button asChild variant="outline" size="sm">
-                <Link to="/configuracoes">
-                  <Settings className="h-4 w-4" />
-                  <span className="hidden sm:inline">Configurações</span>
-                </Link>
-              </Button>
+              <>
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/configuracoes">
+                    <Settings className="h-4 w-4" />
+                    <span className="hidden sm:inline">Config. Aditivo</span>
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/configuracoes/quitacao">
+                    <Settings className="h-4 w-4" />
+                    <span className="hidden sm:inline">Config. Quitação</span>
+                  </Link>
+                </Button>
+              </>
             )}
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
