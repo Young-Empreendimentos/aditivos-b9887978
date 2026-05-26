@@ -32,6 +32,7 @@ import {
   listContratosByCliente,
   listParcelasByContrato,
   getDadosContrato,
+  extractUnitName,
   type EmpresaSienge,
   type ClienteSienge,
   type ContratoSienge,
@@ -71,6 +72,8 @@ const Quitacao = () => {
   const [calculating, setCalculating] = useState(false);
   const [resultado, setResultado] = useState<ResultadoQuitacao | null>(null);
   const [empConf, setEmpConf] = useState<QuitacaoConfig | null>(null);
+  const [loteNome, setLoteNome] = useState<string | null>(null);
+  const [loteHabilitado, setLoteHabilitado] = useState<boolean>(true);
 
   // Ref para debounce de busca de cliente
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -163,7 +166,17 @@ const Quitacao = () => {
         toast.warning(`Taxa de quitação para "${nomeEmp}" é 0%. Verifique as configurações.`);
       }
 
-      // 4. Mapear parcelas para o cálculo
+      // 4. Identificar lote e checar se está habilitado para desconto
+      const lote = rows.length > 0 ? extractUnitName(rows[0]) : null;
+      setLoteNome(lote);
+      const lotesHabilitados = cfg.lotes_habilitados;
+      const habilitado =
+        !lotesHabilitados || lotesHabilitados.length === 0
+          ? true
+          : lote !== null && lotesHabilitados.includes(lote);
+      setLoteHabilitado(habilitado);
+
+      // 5. Mapear parcelas para o cálculo
       // parseDateLocal: converte YYYY-MM-DD como horário local (evita UTC -1 dia no Brasil)
       const parseDateLocal = (s: string | null) => {
         if (!s) return new Date(NaN);
@@ -181,16 +194,17 @@ const Quitacao = () => {
 
       const valorTotalContrato = Number(dadosContrato?.contrato.valor_total ?? 0);
 
-      // 5. Montar objeto compatível com calcularQuitacao
+      // 6. Montar objeto compatível com calcularQuitacao
+      // Se lote não habilitado: taxa = 0 → calcVP retorna valorAtual sem desconto
       const empCompat = {
         id: nomeEmp,
         nome: nomeEmp,
         taxaJuros: 0,
-        taxaJurosQuitacao: cfg.taxa_padrao,
-        regrasQuitacao: cfg.regras,
+        taxaJurosQuitacao: habilitado ? cfg.taxa_padrao : 0,
+        regrasQuitacao: habilitado ? cfg.regras : [],
       };
 
-      // 6. Calcular
+      // 7. Calcular
       const db = new Date(dataBase + 'T00:00:00');
       const res = calcularQuitacao(parcelas, db, isRegistrado, valorTotalContrato, empCompat);
       setResultado(res);
@@ -410,9 +424,16 @@ const Quitacao = () => {
                   <Badge variant="outline">
                     {empConf.empreendimento}
                   </Badge>
-                  <Badge variant="secondary">
-                    {resultado.taxaPercent.toFixed(4).replace('.', ',')}% a.m. — {resultado.regraDescricao}
-                  </Badge>
+                  {loteNome && (
+                    <Badge variant="outline">{loteNome}</Badge>
+                  )}
+                  {loteHabilitado ? (
+                    <Badge variant="secondary">
+                      {resultado.taxaPercent.toFixed(4).replace('.', ',')}% a.m. — {resultado.regraDescricao}
+                    </Badge>
+                  ) : (
+                    <Badge variant="destructive">Sem desconto de quitação</Badge>
+                  )}
                   <Badge variant="outline">
                     {resultado.percentualPago.toFixed(1).replace('.', ',')}% pago
                   </Badge>
@@ -422,6 +443,13 @@ const Quitacao = () => {
                 </div>
               </div>
             </CardHeader>
+            {!loteHabilitado && (
+              <CardContent className="pb-0 pt-0">
+                <div className="rounded-md border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 px-4 py-3 text-sm text-blue-800 dark:text-blue-300">
+                  Este lote não possui desconto de quitação configurado — o valor apresentado é igual ao saldo devedor atual, sem aplicação de juros ou desconto.
+                </div>
+              </CardContent>
+            )}
             <CardContent className="p-0">
               <Table>
                 <TableHeader>

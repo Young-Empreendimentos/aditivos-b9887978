@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Loader2, Plus, Save, Settings2, Trash2 } from 'lucide-react';
+import { ArrowLeft, List, Loader2, Plus, Save, Settings2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermission } from '@/hooks/usePermission';
 import { listEmpreendimentosSienge } from '@/lib/sienge';
@@ -45,6 +46,7 @@ interface EmpRow {
   nome: string;
   taxaInput: string;
   regras: RegraQuitacao[];
+  lotes_habilitados: string[] | null;
   dirty: boolean;
   saving: boolean;
 }
@@ -243,6 +245,132 @@ function RegraDialog({
   );
 }
 
+// ─── Dialog de lotes habilitados ─────────────────────────────────────────────
+
+function LotesDialog({
+  nomeEmp,
+  lotesIniciais,
+  open,
+  onClose,
+  onSaved,
+}: {
+  nomeEmp: string;
+  lotesIniciais: string[] | null;
+  open: boolean;
+  onClose: () => void;
+  onSaved: (lotes: string[] | null) => void;
+}) {
+  const [todos, setTodos] = useState(true);
+  const [textarea, setTextarea] = useState('');
+  const [saving, setSaving] = useState(false);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (open) {
+      if (!lotesIniciais || lotesIniciais.length === 0) {
+        setTodos(true);
+        setTextarea('');
+      } else {
+        setTodos(false);
+        setTextarea(lotesIniciais.join('\n'));
+      }
+    }
+  }, [open, lotesIniciais]);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const lotes = todos
+        ? null
+        : textarea
+            .split('\n')
+            .map((l) => l.trim())
+            .filter(Boolean);
+      const current = await getQuitacaoConfig(nomeEmp);
+      await saveQuitacaoConfig(
+        {
+          empreendimento: nomeEmp,
+          taxa_padrao: current?.taxa_padrao ?? 0,
+          regras: current?.regras ?? [],
+          lotes_habilitados: lotes,
+        },
+        user?.email ?? null
+      );
+      toast.success('Lotes salvos!');
+      onSaved(lotes);
+      onClose();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Lotes com desconto — {nomeEmp}</DialogTitle>
+        </DialogHeader>
+        <p className="text-xs text-muted-foreground -mt-2">
+          Defina quais lotes podem receber desconto de quitação.
+          Lotes fora da lista serão calculados sem desconto.
+        </p>
+
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant={todos ? 'default' : 'outline'}
+              onClick={() => setTodos(true)}
+            >
+              Todos os lotes
+            </Button>
+            <Button
+              size="sm"
+              variant={!todos ? 'default' : 'outline'}
+              onClick={() => setTodos(false)}
+            >
+              Lotes específicos
+            </Button>
+          </div>
+
+          {!todos && (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">
+                Um lote por linha (exatamente como aparece no sistema, ex: "Lote 113")
+              </Label>
+              <Textarea
+                value={textarea}
+                onChange={(e) => setTextarea(e.target.value)}
+                placeholder={'Lote 01\nLote 02\nLote 05'}
+                className="font-mono text-xs min-h-[180px]"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                {textarea.split('\n').filter((l) => l.trim()).length} lote(s) cadastrado(s)
+              </p>
+            </div>
+          )}
+
+          {todos && (
+            <p className="text-sm text-muted-foreground rounded-md border border-dashed p-3">
+              Todos os lotes deste empreendimento receberão desconto de quitação.
+            </p>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>Fechar</Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Salvar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function ConfiguracoesQuitacao() {
@@ -253,6 +381,7 @@ export default function ConfiguracoesQuitacao() {
   const [rows, setRows] = useState<EmpRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogNome, setDialogNome] = useState<string | null>(null);
+  const [lotesDialogNome, setLotesDialogNome] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -271,6 +400,7 @@ export default function ConfiguracoesQuitacao() {
               nome,
               taxaInput: String(cfg?.taxa_padrao ?? ''),
               regras: cfg?.regras ?? [],
+              lotes_habilitados: cfg?.lotes_habilitados ?? null,
               dirty: false,
               saving: false,
             };
@@ -362,6 +492,7 @@ export default function ConfiguracoesQuitacao() {
                   <TableHead>Empreendimento</TableHead>
                   <TableHead className="w-44 text-right">Taxa padrão (% a.m.)</TableHead>
                   <TableHead className="w-32 text-center">Regras específicas</TableHead>
+                  <TableHead className="w-36 text-center">Lotes c/ desconto</TableHead>
                   <TableHead className="w-28 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -406,6 +537,19 @@ export default function ConfiguracoesQuitacao() {
                           : 'Configurar'}
                       </Button>
                     </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        size="sm" variant="ghost"
+                        disabled={!canEdit}
+                        onClick={() => setLotesDialogNome(r.nome)}
+                        className="gap-1"
+                      >
+                        <List className="h-3.5 w-3.5" />
+                        {r.lotes_habilitados && r.lotes_habilitados.length > 0
+                          ? `${r.lotes_habilitados.length} lote${r.lotes_habilitados.length > 1 ? 's' : ''}`
+                          : 'Todos'}
+                      </Button>
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button
                         size="sm"
@@ -445,6 +589,26 @@ export default function ConfiguracoesQuitacao() {
           }}
         />
       )}
+
+      {lotesDialogNome && (() => {
+        const lotesRow = rows.find((r) => r.nome === lotesDialogNome);
+        return lotesRow ? (
+          <LotesDialog
+            nomeEmp={lotesRow.nome}
+            lotesIniciais={lotesRow.lotes_habilitados}
+            open={!!lotesDialogNome}
+            onClose={() => setLotesDialogNome(null)}
+            onSaved={(lotes) => {
+              setRows((prev) =>
+                prev.map((r) =>
+                  r.nome === lotesRow.nome ? { ...r, lotes_habilitados: lotes } : r
+                )
+              );
+              setLotesDialogNome(null);
+            }}
+          />
+        ) : null;
+      })()}
     </div>
   );
 }

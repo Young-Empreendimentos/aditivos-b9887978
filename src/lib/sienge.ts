@@ -40,6 +40,20 @@ export interface SiengeParcelaRow {
   company_name: string | null;
   business_area_name: string | null;
   main_unit: string | null;
+  raw_data?: {
+    bill?: {
+      units?: Array<{ id: number; name: string }>;
+      costCenter?: { id: number; name: string };
+    };
+  } | null;
+}
+
+/** Extrai o nome da unidade/lote a partir do raw_data do Sienge.
+ *  Ex: "Lote 113", "Lote 07" */
+export function extractUnitName(row: SiengeParcelaRow): string | null {
+  const units = row.raw_data?.bill?.units;
+  if (!units || units.length === 0) return null;
+  return units[0].name ?? null;
 }
 
 /** Retorna todos os empreendimentos distintos via RPC SECURITY DEFINER

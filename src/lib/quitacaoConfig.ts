@@ -28,6 +28,9 @@ export interface QuitacaoConfig {
   empreendimento: string;        // chave (business_area_name do Sienge)
   taxa_padrao: number;           // % a.m., ex: 0.53
   regras: RegraQuitacao[];
+  /** Lista de lotes habilitados para desconto (ex: ["Lote 01", "Lote 02"]).
+   *  null ou ausente = todos os lotes são habilitados (padrão). */
+  lotes_habilitados?: string[] | null;
   updated_at?: unknown;
   updated_by?: string | null;
 }
