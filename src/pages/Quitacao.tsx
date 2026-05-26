@@ -413,6 +413,9 @@ const Quitacao = () => {
                   <Badge variant="secondary">
                     {resultado.taxaPercent.toFixed(4).replace('.', ',')}% a.m. — {resultado.regraDescricao}
                   </Badge>
+                  <Badge variant="outline">
+                    {resultado.percentualPago.toFixed(1).replace('.', ',')}% pago
+                  </Badge>
                   <Badge variant={isRegistrado ? 'default' : 'outline'}>
                     {isRegistrado ? 'Registrado' : 'Não registrado'}
                   </Badge>
