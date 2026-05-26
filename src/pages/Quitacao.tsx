@@ -139,16 +139,6 @@ const Quitacao = () => {
         selectedContrato.bill_id,
         selectedContrato.bill_document
       );
-      // DEBUG TEMPORÁRIO — remover após verificar
-      if (rows.length > 0) {
-        const r = rows[0];
-        console.log('[DEBUG parcela[0]]', {
-          due_date: r.due_date,
-          current_balance: r.current_balance,
-          current_balance_with_addition: r.current_balance_with_addition,
-          corrected_balance_amount: r.corrected_balance_amount,
-        });
-      }
 
       // 2. Dados do contrato (valor total + empreendimento)
       const dadosContrato = await getDadosContrato(selectedContrato.bill_id);

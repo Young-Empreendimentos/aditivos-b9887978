@@ -70,7 +70,7 @@ export function Step2({ parcelas, selectedIds, onSelectionChange, onNext, onBack
                   <TableHead className="w-20">Nº Parc.</TableHead>
                   <TableHead>Data Vencimento</TableHead>
                   <TableHead className="text-right">Valor Original</TableHead>
-                  <TableHead className="text-right">Saldo Atual</TableHead>
+                  <TableHead className="text-right">Saldo Atual c/ encargos</TableHead>
                   <TableHead className="w-24">Status</TableHead>
                 </TableRow>
               </TableHeader>
