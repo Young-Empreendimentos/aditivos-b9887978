@@ -55,8 +55,11 @@ function diasEntre(dataBase: Date, dataParcela: Date): number {
  * iDiaria = (1 + iMensal)^(1/30) - 1
  *
  * dias > 0 → VP < VF (desconto — parcela futura)
- * dias < 0 → VP > VF (acréscimo — parcela vencida com juros de atraso)
  * dias = 0 → VP = VF
+ *
+ * Nota: esta função NÃO é chamada para parcelas em atraso (dias < 0).
+ * Nesses casos, o valor do banco (current_balance_with_addition) já inclui
+ * os acréscimos devidos e é usado diretamente em calcularQuitacao.
  *
  * Idêntico à fórmula Excel:
  *   =-VP((1+(($D$13+1)^(1/12)-1))^(1/30)-1; dias; ; VF)
@@ -125,7 +128,10 @@ export function calcularQuitacao(
     .filter((p) => p.valorAtual > 0)
     .map((p) => {
       const dias = diasEntre(dataBase, p.dataVencimento);
-      const vp = calcVP(p.valorAtual, taxa, dias);
+      // Parcela em atraso (dias < 0): o banco já retorna o saldo com juros e acréscimos
+      // (current_balance_with_addition) — não aplicar desconto nem acréscimo adicional.
+      // Parcela futura (dias > 0): aplicar desconto de VP normalmente.
+      const vp = dias < 0 ? p.valorAtual : calcVP(p.valorAtual, taxa, dias);
       return {
         numero: p.numero,
         dataVencimento: p.dataVencimento,
