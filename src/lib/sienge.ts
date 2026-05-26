@@ -129,7 +129,7 @@ export async function listParcelasByContrato(billId: string, billDocument: strin
     .from("sienge_parcelas_receber")
     .select("*")
     .eq("bill_id", billId)
-    .gt("current_balance", 0)
+    .or("current_balance.gt.0,current_balance_with_addition.gt.0")
     .order("due_date", { ascending: true })
     .limit(5000);
   if (billDocument) query = query.eq("bill_document", billDocument);

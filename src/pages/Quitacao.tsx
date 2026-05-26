@@ -164,10 +164,17 @@ const Quitacao = () => {
       }
 
       // 4. Mapear parcelas para o cálculo
+      // parseDateLocal: converte YYYY-MM-DD como horário local (evita UTC -1 dia no Brasil)
+      const parseDateLocal = (s: string | null) => {
+        if (!s) return new Date(NaN);
+        const [y, m, d] = s.split('T')[0].split('-').map(Number);
+        return new Date(y, m - 1, d);
+      };
       const parcelas = rows.map((p) => ({
         numero: p.installment_number ?? 0,
-        dataVencimento: new Date(p.due_date + 'T00:00:00'),
-        valorAtual: Number(p.current_balance ?? 0),
+        dataVencimento: parseDateLocal(p.due_date),
+        // current_balance_with_addition inclui juros e acréscimos; fallback para current_balance
+        valorAtual: Number(p.current_balance_with_addition ?? p.current_balance ?? 0),
       }));
 
       const valorTotalContrato = Number(dadosContrato?.contrato.valor_total ?? 0);

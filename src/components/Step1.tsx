@@ -62,10 +62,20 @@ interface Step1Props {
   onNext: () => void;
 }
 
+/** Converte string de data (YYYY-MM-DD ou ISO) para Date no horário LOCAL,
+ *  evitando o problema de UTC midnight = dia anterior no Brasil (UTC-3). */
+function parseDateLocal(dateStr: string | null): Date | null {
+  if (!dateStr) return null;
+  const datePart = dateStr.split('T')[0];
+  const parts = datePart.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) return null;
+  return new Date(parts[0], parts[1] - 1, parts[2]); // mês é 0-indexado
+}
+
 function mapRowsToParcelas(rows: SiengeParcelaRow[]): Parcela[] {
   const parcelas: Parcela[] = rows
     .map((r, idx) => {
-      const due = r.due_date ? new Date(r.due_date) : null;
+      const due = parseDateLocal(r.due_date);
       if (!due || isNaN(due.getTime())) return null;
       return {
         rowIndex: idx,
@@ -74,7 +84,7 @@ function mapRowsToParcelas(rows: SiengeParcelaRow[]): Parcela[] {
         parcelaOriginal: r.installment_number != null ? String(r.installment_number) : '',
         tipoCondicao: '',
         valorOriginal: Number(r.original_amount ?? 0),
-        saldoAtual: Number(r.current_balance ?? 0),
+        saldoAtual: Number(r.current_balance_with_addition ?? r.current_balance ?? 0),
         isEntrada: false,
       } as Parcela;
     })
