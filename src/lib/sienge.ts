@@ -135,7 +135,24 @@ export async function listParcelasByContrato(billId: string, billDocument: strin
   if (billDocument) query = query.eq("bill_document", billDocument);
   const { data, error } = await query;
   if (error) throw error;
-  return data ?? [];
+
+  // Normalização dos dados:
+  // 1. due_date: "YYYY-MM-DD" é interpretado como UTC pelo JS (new Date("YYYY-MM-DD")),
+  //    o que resulta em um dia antes no Brasil (UTC-3). Adicionamos "T12:00:00" para que
+  //    o JS trate como horário local, independentemente da versão do componente que consome.
+  // 2. current_balance: sobrescrevemos com current_balance_with_addition quando disponível,
+  //    para garantir que o saldo já inclua juros, correção e acréscimos.
+  return (data ?? []).map((row) => ({
+    ...row,
+    due_date:
+      row.due_date && !row.due_date.includes('T')
+        ? row.due_date + 'T12:00:00'
+        : row.due_date,
+    current_balance:
+      row.current_balance_with_addition != null
+        ? row.current_balance_with_addition
+        : row.current_balance,
+  }));
 }
 
 export interface ParteContrato {
