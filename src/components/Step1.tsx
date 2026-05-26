@@ -73,6 +73,16 @@ function parseDateLocal(dateStr: string | null): Date | null {
 }
 
 function mapRowsToParcelas(rows: SiengeParcelaRow[]): Parcela[] {
+  // DEBUG TEMPORÁRIO
+  if (rows.length > 0) {
+    const r = rows[0];
+    console.log('[ADITIVO DEBUG parcela[0]]', {
+      due_date_raw: r.due_date,
+      current_balance: r.current_balance,
+      current_balance_with_addition: r.current_balance_with_addition,
+      corrected_balance_amount: r.corrected_balance_amount,
+    });
+  }
   const parcelas: Parcela[] = rows
     .map((r, idx) => {
       const due = parseDateLocal(r.due_date);
