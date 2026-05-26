@@ -173,8 +173,10 @@ const Quitacao = () => {
       const parcelas = rows.map((p) => ({
         numero: p.installment_number ?? 0,
         dataVencimento: parseDateLocal(p.due_date),
-        // current_balance_with_addition inclui juros e acréscimos; fallback para current_balance
+        // valorAtual: saldo completo com juros e acréscimos (usado no cálculo VP)
         valorAtual: Number(p.current_balance_with_addition ?? p.current_balance ?? 0),
+        // valorCorrigido: saldo com correção monetária, sem juros/multa (usado no % pago)
+        valorCorrigido: Number(p.corrected_balance_amount ?? p.original_amount ?? 0),
       }));
 
       const valorTotalContrato = Number(dadosContrato?.contrato.valor_total ?? 0);
@@ -410,9 +412,6 @@ const Quitacao = () => {
                   </Badge>
                   <Badge variant="secondary">
                     {resultado.taxaPercent.toFixed(4).replace('.', ',')}% a.m. — {resultado.regraDescricao}
-                  </Badge>
-                  <Badge variant="outline">
-                    {resultado.percentualPago.toFixed(1).replace('.', ',')}% pago
                   </Badge>
                   <Badge variant={isRegistrado ? 'default' : 'outline'}>
                     {isRegistrado ? 'Registrado' : 'Não registrado'}

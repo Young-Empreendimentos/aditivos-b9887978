@@ -5,7 +5,8 @@ import type { Empreendimento } from './empreendimentos';
 export interface ParcelaQuitacaoInput {
   numero: number;
   dataVencimento: Date;
-  valorAtual: number; // VF — current_balance do banco
+  valorAtual: number;    // VF — saldo corrigido com tudo (current_balance_with_addition)
+  valorCorrigido: number; // saldo com correção monetária, SEM juros/multa de atraso (corrected_balance_amount)
 }
 
 export interface ParcelaQuitacaoResult {
@@ -115,11 +116,13 @@ export function calcularQuitacao(
     throw new Error('A data base não pode ser posterior ao último dia do mês atual.');
   }
 
-  // % pago = (total contrato - total em aberto) / total contrato
-  const totalEmAberto = parcelas.reduce((s, p) => s + p.valorAtual, 0);
+  // % pago = (valor original do contrato − saldo corrigido em aberto) / valor original do contrato
+  // "Saldo corrigido" = com correção monetária (INCC/IGPM), mas SEM juros de atraso nem multa.
+  // Campo Sienge: corrected_balance_amount → valorCorrigido
+  const totalCorrigidoEmAberto = parcelas.reduce((s, p) => s + p.valorCorrigido, 0);
   const percentualPago =
     valorTotalContrato > 0
-      ? Math.max(0, Math.min(100, ((valorTotalContrato - totalEmAberto) / valorTotalContrato) * 100))
+      ? Math.max(0, Math.min(100, ((valorTotalContrato - totalCorrigidoEmAberto) / valorTotalContrato) * 100))
       : 0;
 
   const { taxa, taxaPercent, descricao } = buscarTaxa(emp, isRegistrado, percentualPago);
