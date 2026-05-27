@@ -204,9 +204,15 @@ const Quitacao = () => {
         regrasQuitacao: habilitado ? cfg.regras : [],
       };
 
-      // 7. Calcular
+      // 7. Data de emissão do contrato (para regras por período)
+      const emissaoStr = rows.length > 0 ? (rows[0].bill_emission_date ?? null) : null;
+      const dataContrato = emissaoStr
+        ? (() => { const [y, m, d] = emissaoStr.split('T')[0].split('-').map(Number); return new Date(y, m - 1, d); })()
+        : null;
+
+      // 8. Calcular
       const db = new Date(dataBase + 'T00:00:00');
-      const res = calcularQuitacao(parcelas, db, isRegistrado, valorTotalContrato, empCompat);
+      const res = calcularQuitacao(parcelas, db, isRegistrado, valorTotalContrato, empCompat, dataContrato);
       setResultado(res);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Erro ao calcular');

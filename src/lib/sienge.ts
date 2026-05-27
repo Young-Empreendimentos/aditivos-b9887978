@@ -36,6 +36,7 @@ export interface SiengeParcelaRow {
   discount_amount: number | null;
   bill_id: number | string | null;
   bill_document: string | null;
+  bill_emission_date: string | null; // data de emissão do contrato (YYYY-MM-DD)
   client_name: string | null;
   company_name: string | null;
   business_area_name: string | null;

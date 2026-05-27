@@ -22,6 +22,10 @@ export interface RegraQuitacao {
   pago_max: number | null;       // % máximo, null = 100
   taxa: number;                  // % a.m., ex: 0.53
   descricao?: string;
+  /** Intervalo de data de emissão do contrato (YYYY-MM-DD).
+   *  null = sem restrição de data. */
+  data_contrato_min?: string | null;
+  data_contrato_max?: string | null;
 }
 
 export interface QuitacaoConfig {

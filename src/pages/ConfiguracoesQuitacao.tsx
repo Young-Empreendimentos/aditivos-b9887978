@@ -146,6 +146,7 @@ function RegraDialog({
                 <TableHead className="w-28">Registrado?</TableHead>
                 <TableHead className="w-24">% Pago min</TableHead>
                 <TableHead className="w-24">% Pago max</TableHead>
+                <TableHead>Período contrato (de → até)</TableHead>
                 <TableHead className="w-28">Taxa % a.m.</TableHead>
                 <TableHead>Descrição</TableHead>
                 <TableHead className="w-10" />
@@ -201,6 +202,29 @@ function RegraDialog({
                     />
                   </TableCell>
                   <TableCell>
+                    <div className="flex gap-1 items-center">
+                      <Input
+                        type="date"
+                        value={r.data_contrato_min ?? ''}
+                        onChange={(e) =>
+                          updateRegra(r._key, { data_contrato_min: e.target.value || null })
+                        }
+                        className="h-8 w-32 tabular-nums text-xs"
+                        title="Data contrato de"
+                      />
+                      <span className="text-xs text-muted-foreground">até</span>
+                      <Input
+                        type="date"
+                        value={r.data_contrato_max ?? ''}
+                        onChange={(e) =>
+                          updateRegra(r._key, { data_contrato_max: e.target.value || null })
+                        }
+                        className="h-8 w-32 tabular-nums text-xs"
+                        title="Data contrato até"
+                      />
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     <Input
                       type="number" min={0} max={100} step={0.01}
                       value={r.taxa}
@@ -210,7 +234,7 @@ function RegraDialog({
                   </TableCell>
                   <TableCell>
                     <Input
-                      placeholder="Ex: Registrado >50% pago"
+                      placeholder="Ex: Período sem desconto"
                       value={r.descricao ?? ''}
                       onChange={(e) => updateRegra(r._key, { descricao: e.target.value })}
                       className="h-8 text-xs"

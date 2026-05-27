@@ -75,13 +75,16 @@ function calcVP(vf: number, taxaMensalDecimal: number, dias: number): number {
 
 /**
  * Busca a taxa aplicável seguindo a hierarquia:
- * 1. Regra específica que bata nos 3 critérios
+ * 1. Regra específica que bata em todos os critérios configurados
  * 2. Taxa padrão do empreendimento (fallback obrigatório)
+ *
+ * Critérios disponíveis por regra: is_registrado, % pago, data_contrato_min/max
  */
 export function buscarTaxa(
   emp: Empreendimento,
   isRegistrado: boolean,
   percentualPago: number,
+  dataContrato?: Date | null,
 ): { taxa: number; taxaPercent: number; descricao: string } {
   for (const r of emp.regrasQuitacao ?? []) {
     // Critério: status de registro
@@ -90,12 +93,25 @@ export function buscarTaxa(
     const min = r.pago_min ?? 0;
     const max = r.pago_max ?? 100;
     if (percentualPago < min || percentualPago > max) continue;
+    // Critério: data de emissão do contrato
+    if (r.data_contrato_min || r.data_contrato_max) {
+      // Se não soubermos a data do contrato, não aplicamos a regra
+      if (!dataContrato || isNaN(dataContrato.getTime())) continue;
+      if (r.data_contrato_min) {
+        const [y, m, d] = r.data_contrato_min.split('-').map(Number);
+        if (dataContrato < new Date(y, m - 1, d)) continue;
+      }
+      if (r.data_contrato_max) {
+        const [y, m, d] = r.data_contrato_max.split('-').map(Number);
+        if (dataContrato > new Date(y, m - 1, d, 23, 59, 59)) continue;
+      }
+    }
     // Todos os critérios bateram
     const taxaPercent = r.taxa;
     return {
       taxa: taxaPercent / 100,
       taxaPercent,
-      descricao: r.descricao ?? `Regra específica`,
+      descricao: r.descricao ?? 'Regra específica',
     };
   }
   // Fallback: taxa padrão
@@ -111,6 +127,7 @@ export function calcularQuitacao(
   isRegistrado: boolean,
   valorTotalContrato: number,
   emp: Empreendimento,
+  dataContrato?: Date | null,
 ): ResultadoQuitacao {
   if (!validarDataBase(dataBase)) {
     throw new Error('A data base não pode ser posterior ao último dia do mês atual.');
@@ -125,7 +142,7 @@ export function calcularQuitacao(
       ? Math.max(0, Math.min(100, ((valorTotalContrato - totalCorrigidoEmAberto) / valorTotalContrato) * 100))
       : 0;
 
-  const { taxa, taxaPercent, descricao } = buscarTaxa(emp, isRegistrado, percentualPago);
+  const { taxa, taxaPercent, descricao } = buscarTaxa(emp, isRegistrado, percentualPago, dataContrato);
 
   const parcelasCalc: ParcelaQuitacaoResult[] = parcelas
     .filter((p) => p.valorAtual > 0)
