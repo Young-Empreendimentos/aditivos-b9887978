@@ -27,6 +27,7 @@ import {
   AlertTriangle,
   FileCheck2,
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -39,7 +40,7 @@ import {
   type ContratoSienge,
   type SiengeParcelaRow,
 } from '@/lib/sienge';
-import { getConfiguracao, fetchTemplateAsFile } from '@/lib/configuracoes';
+import { getConfiguracao, fetchTemplateAsFile, buscarTaxaAditivo, type ConfiguracaoEmpresa } from '@/lib/configuracoes';
 import type { Parcela } from '@/types/contract';
 import { formatCurrency } from '@/lib/formatters';
 
@@ -49,6 +50,7 @@ interface Step1Props {
   taxaJuros: number;
   custosAdicionais: number;
   dataRenegociacao: Date | null;
+  isRegistrado: boolean;
   selectedCliente: ClienteSienge | null;
   selectedContrato: ContratoSienge | null;
   parcelas: Parcela[];
@@ -56,6 +58,7 @@ interface Step1Props {
   onTaxaJuros: (v: number) => void;
   onCustosAdicionais: (v: number) => void;
   onDataRenegociacao: (d: Date) => void;
+  onIsRegistrado: (v: boolean) => void;
   onClienteSelect: (c: ClienteSienge | null) => void;
   onContratoSelect: (c: ContratoSienge | null) => void;
   onParcelasLoaded: (p: Parcela[]) => void;
@@ -114,6 +117,7 @@ export function Step1({
   taxaJuros,
   custosAdicionais,
   dataRenegociacao,
+  isRegistrado,
   selectedCliente,
   selectedContrato,
   parcelas,
@@ -121,6 +125,7 @@ export function Step1({
   onTaxaJuros,
   onCustosAdicionais,
   onDataRenegociacao,
+  onIsRegistrado,
   onClienteSelect,
   onContratoSelect,
   onParcelasLoaded,
@@ -140,6 +145,8 @@ export function Step1({
   const [loadingConfig, setLoadingConfig] = useState(false);
   const [configTemplateName, setConfigTemplateName] = useState<string | null>(null);
   const [configMissing, setConfigMissing] = useState(false);
+  // Guarda a config carregada para recompor a taxa quando isRegistrado mudar
+  const [loadedCfg, setLoadedCfg] = useState<ConfiguracaoEmpresa | null>(null);
 
   // Load empresas on mount
   useEffect(() => {
@@ -202,11 +209,14 @@ export function Step1({
       const file = cfg ? await fetchTemplateAsFile(cfg) : null;
       if (!cfg || !file) {
         setConfigMissing(true);
+        setLoadedCfg(null);
         return;
       }
       onTemplateFile(file);
       setConfigTemplateName(cfg.templateName ?? file.name);
-      if (typeof cfg.taxaJuros === 'number') onTaxaJuros(cfg.taxaJuros);
+      setLoadedCfg(cfg);
+      // Aplica já a taxa correta considerando o status de registro atual
+      onTaxaJuros(buscarTaxaAditivo(cfg, isRegistrado));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao carregar configuração da empresa';
       toast.error(msg);
@@ -498,6 +508,21 @@ export function Step1({
                 className="pr-14 tabular-nums"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">% a.m.</span>
+            </div>
+            {/* Checkbox registrado — recomputa taxa se houver regras configuradas */}
+            <div className="flex items-center gap-2 pt-1">
+              <Checkbox
+                id="registrado"
+                checked={isRegistrado}
+                onCheckedChange={(checked) => {
+                  const v = !!checked;
+                  onIsRegistrado(v);
+                  if (loadedCfg) onTaxaJuros(buscarTaxaAditivo(loadedCfg, v));
+                }}
+              />
+              <Label htmlFor="registrado" className="text-xs cursor-pointer font-normal">
+                Contrato registrado em cartório
+              </Label>
             </div>
           </div>
           <div className="space-y-2">

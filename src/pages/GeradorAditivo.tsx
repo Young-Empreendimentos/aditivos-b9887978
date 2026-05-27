@@ -45,6 +45,7 @@ const GeradorAditivo = () => {
   const [taxaJuros, setTaxaJuros] = useState(0);
   const [custosAdicionais, setCustosAdicionais] = useState(0);
   const [dataRenegociacao, setDataRenegociacao] = useState<Date | null>(null);
+  const [isRegistrado, setIsRegistrado] = useState(false);
   const [parcelas, setParcelas] = useState<Parcela[]>([]);
   const [selectedCliente, setSelectedCliente] = useState<ClienteSienge | null>(null);
   const [selectedContrato, setSelectedContrato] = useState<ContratoSienge | null>(null);
@@ -142,6 +143,7 @@ const GeradorAditivo = () => {
             taxaJuros={taxaJuros}
             custosAdicionais={custosAdicionais}
             dataRenegociacao={dataRenegociacao}
+            isRegistrado={isRegistrado}
             selectedCliente={selectedCliente}
             selectedContrato={selectedContrato}
             parcelas={parcelas}
@@ -149,6 +151,7 @@ const GeradorAditivo = () => {
             onTaxaJuros={setTaxaJuros}
             onCustosAdicionais={setCustosAdicionais}
             onDataRenegociacao={setDataRenegociacao}
+            onIsRegistrado={setIsRegistrado}
             onClienteSelect={setSelectedCliente}
             onContratoSelect={setSelectedContrato}
             onParcelasLoaded={setParcelas}

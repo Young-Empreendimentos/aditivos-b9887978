@@ -1,11 +1,33 @@
 import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { db, auth } from './firebase';
 
+/** Regra de taxa para aditivos (ex: contrato registrado paga taxa menor) */
+export interface RegraAditivo {
+  is_registrado: boolean | null; // null = qualquer status
+  taxa: number;                  // % a.m., ex: 1.50
+  descricao?: string;
+}
+
+/**
+ * Retorna a taxa de juros para aditivo aplicando a hierarquia de regras:
+ * 1. Primeira regra que bater no critério is_registrado
+ * 2. taxa_padrao (taxaJuros)
+ */
+export function buscarTaxaAditivo(cfg: ConfiguracaoEmpresa, isRegistrado: boolean): number {
+  for (const r of cfg.regrasAditivo ?? []) {
+    if (r.is_registrado !== null && r.is_registrado !== isRegistrado) continue;
+    return r.taxa;
+  }
+  return cfg.taxaJuros;
+}
+
 export interface ConfiguracaoEmpresa {
   company_id: string;
   company_name: string;
-  /** Taxa de juros usada nos aditivos (% a.m.) */
+  /** Taxa de juros padrão usada nos aditivos (% a.m.) */
   taxaJuros: number;
+  /** Regras específicas de taxa para aditivos (ex: registrado × não registrado) */
+  regrasAditivo?: RegraAditivo[];
   /** Taxa de juros usada nas quitações (% a.m.) */
   taxaJurosQuitacao?: number;
   /** Template .docx em base64 (o arquivo já deve vir comprimido pelo usuário) */
@@ -47,6 +69,7 @@ export async function upsertConfiguracao(
     company_id: String(config.company_id),
     company_name: config.company_name,
     taxaJuros: Number(config.taxaJuros) || 0,
+    regrasAditivo: config.regrasAditivo ?? [],
     taxaJurosQuitacao:
       config.taxaJurosQuitacao === undefined
         ? undefined

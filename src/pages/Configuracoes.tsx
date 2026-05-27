@@ -1,11 +1,26 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, Download, Loader2, Save, Upload, AlertCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Download, Loader2, Save, Settings2, Trash2, Upload, AlertCircle, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -21,6 +36,7 @@ import {
   getConfiguracao,
   upsertConfiguracao,
   type ConfiguracaoEmpresa,
+  type RegraAditivo,
 } from '@/lib/configuracoes';
 
 interface Row {
@@ -28,12 +44,183 @@ interface Row {
   company_name: string;
   taxaJuros: string;
   originalTaxa: number;
+  regrasAditivo: RegraAditivo[];
   hasTemplate: boolean; // só indica presença; o base64 não fica no state
   templateName?: string;
   templateSize?: number;
   pendingFile?: File | null;
   dirty: boolean;
   saving: boolean;
+}
+
+// ─── Dialog de regras de taxa para aditivos ──────────────────────────────────
+
+interface RegraRow extends RegraAditivo { _key: number }
+
+function emptyRegra(key: number): RegraRow {
+  return { _key: key, is_registrado: null, taxa: 0, descricao: '' };
+}
+
+function RegraAditivoDialog({
+  nomeEmpresa,
+  companyId,
+  regrasIniciais,
+  open,
+  onClose,
+  onSaved,
+}: {
+  nomeEmpresa: string;
+  companyId: string;
+  regrasIniciais: RegraAditivo[];
+  open: boolean;
+  onClose: () => void;
+  onSaved: (regras: RegraAditivo[]) => void;
+}) {
+  const [regras, setRegras] = useState<RegraRow[]>([]);
+  const [saving, setSaving] = useState(false);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (open) setRegras(regrasIniciais.map((r, i) => ({ ...r, _key: i })));
+  }, [open, regrasIniciais]);
+
+  function addRegra() {
+    setRegras((prev) => [...prev, emptyRegra(Date.now())]);
+  }
+
+  function removeRegra(key: number) {
+    setRegras((prev) => prev.filter((r) => r._key !== key));
+  }
+
+  function updateRegra(key: number, patch: Partial<RegraRow>) {
+    setRegras((prev) => prev.map((r) => (r._key === key ? { ...r, ...patch } : r)));
+  }
+
+  async function handleSave() {
+    for (const r of regras) {
+      if (!Number.isFinite(r.taxa) || r.taxa < 0 || r.taxa > 100) {
+        toast.error('Taxa inválida em uma das regras (0–100)');
+        return;
+      }
+    }
+    setSaving(true);
+    try {
+      const clean: RegraAditivo[] = regras.map(({ _key, ...r }) => ({
+        is_registrado: r.is_registrado,
+        taxa: Number(r.taxa),
+        ...(r.descricao ? { descricao: r.descricao } : {}),
+      }));
+      const current = await getConfiguracao(companyId);
+      await upsertConfiguracao({
+        company_id: companyId,
+        company_name: nomeEmpresa,
+        taxaJuros: current?.taxaJuros ?? 0,
+        regrasAditivo: clean,
+        updatedBy: user?.email ?? null,
+      });
+      toast.success('Regras de taxa salvas!');
+      onSaved(clean);
+      onClose();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const registradoLabel = (v: boolean | null) =>
+    v === true ? 'Sim' : v === false ? 'Não' : 'Qualquer';
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Regras de taxa — {nomeEmpresa}</DialogTitle>
+        </DialogHeader>
+        <p className="text-xs text-muted-foreground -mt-2 mb-3">
+          A <strong>primeira regra que bater</strong> no critério "Registrado?" é usada.
+          Se nenhuma bater, aplica a taxa padrão da empresa.
+        </p>
+        <div className="max-h-[50vh] overflow-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-32">Registrado?</TableHead>
+                <TableHead className="w-28">Taxa % a.m.</TableHead>
+                <TableHead>Descrição</TableHead>
+                <TableHead className="w-10" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {regras.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">
+                    Nenhuma regra. Clique em "+ Adicionar" para criar.
+                  </TableCell>
+                </TableRow>
+              )}
+              {regras.map((r) => (
+                <TableRow key={r._key}>
+                  <TableCell>
+                    <Select
+                      value={r.is_registrado === null ? 'null' : String(r.is_registrado)}
+                      onValueChange={(v) =>
+                        updateRegra(r._key, { is_registrado: v === 'null' ? null : v === 'true' })
+                      }
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue>{registradoLabel(r.is_registrado)}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="null">Qualquer</SelectItem>
+                        <SelectItem value="true">Sim</SelectItem>
+                        <SelectItem value="false">Não</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number" min={0} max={100} step={0.01}
+                      value={r.taxa}
+                      onChange={(e) => updateRegra(r._key, { taxa: Number(e.target.value) })}
+                      className="h-8 w-24 text-right tabular-nums"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      placeholder="ex: Contrato registrado"
+                      value={r.descricao ?? ''}
+                      onChange={(e) => updateRegra(r._key, { descricao: e.target.value })}
+                      className="h-8 text-xs"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="icon" variant="ghost"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      onClick={() => removeRegra(r._key)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <Button variant="outline" size="sm" onClick={addRegra} className="w-fit">
+          <Plus className="h-3.5 w-3.5" /> Adicionar regra
+        </Button>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>Fechar</Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Salvar regras
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 
@@ -59,6 +246,7 @@ export default function Configuracoes() {
 
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [regraDialogId, setRegraDialogId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,6 +265,7 @@ export default function Configuracoes() {
             company_name: e.company_name,
             taxaJuros: String(cfg?.taxaJuros ?? 0),
             originalTaxa: Number(cfg?.taxaJuros ?? 0),
+            regrasAditivo: cfg?.regrasAditivo ?? [],
             hasTemplate: !!cfg?.templateBase64,
             templateName: cfg?.templateName,
             templateSize: cfg?.templateSize,
@@ -165,6 +354,7 @@ export default function Configuracoes() {
         company_id: r.company_id,
         company_name: r.company_name,
         taxaJuros: taxa,
+        regrasAditivo: r.regrasAditivo,
         // só envia templateBase64 se houver novo arquivo; senão mantém o atual via merge
         ...(templateBase64 ? { templateBase64 } : {}),
         templateName,
@@ -232,7 +422,8 @@ export default function Configuracoes() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Empresa</TableHead>
-                  <TableHead className="w-36 text-right">Taxa (% a.m.)</TableHead>
+                  <TableHead className="w-36 text-right">Taxa padrão (% a.m.)</TableHead>
+                  <TableHead className="w-32 text-center">Regras taxa</TableHead>
                   <TableHead>Modelo (.docx)</TableHead>
                   <TableHead className="w-32">Status</TableHead>
                   <TableHead className="w-28 text-right">Ações</TableHead>
@@ -276,6 +467,19 @@ export default function Configuracoes() {
                           }
                           className="h-8 w-24 ml-auto tabular-nums text-right"
                         />
+                      </TableCell>
+                      <TableCell className="text-center align-top">
+                        <Button
+                          size="sm" variant="ghost"
+                          disabled={!canEditTaxa}
+                          onClick={() => setRegraDialogId(r.company_id)}
+                          className="gap-1"
+                        >
+                          <Settings2 className="h-3.5 w-3.5" />
+                          {r.regrasAditivo.length > 0
+                            ? `${r.regrasAditivo.length} regra${r.regrasAditivo.length > 1 ? 's' : ''}`
+                            : 'Configurar'}
+                        </Button>
                       </TableCell>
                       <TableCell className="align-top">
                         <div className="flex flex-wrap items-center gap-2">
@@ -349,9 +553,30 @@ export default function Configuracoes() {
         </Card>
 
         <p className="mt-3 text-[11px] text-muted-foreground">
-          Modelo: arquivo .docx (envie já comprimido). Taxa de juros: somente Admin. Modelo: Admin e Coordenador.
+          Modelo: arquivo .docx (envie já comprimido). Taxa de juros e regras: somente Admin. Modelo: Admin e Coordenador.
         </p>
       </div>
+
+      {regraDialogId && (() => {
+        const row = rows.find((r) => r.company_id === regraDialogId);
+        return row ? (
+          <RegraAditivoDialog
+            nomeEmpresa={row.company_name}
+            companyId={row.company_id}
+            regrasIniciais={row.regrasAditivo}
+            open={!!regraDialogId}
+            onClose={() => setRegraDialogId(null)}
+            onSaved={(regras) => {
+              setRows((prev) =>
+                prev.map((r) =>
+                  r.company_id === row.company_id ? { ...r, regrasAditivo: regras } : r
+                )
+              );
+              setRegraDialogId(null);
+            }}
+          />
+        ) : null;
+      })()}
     </div>
   );
 }
