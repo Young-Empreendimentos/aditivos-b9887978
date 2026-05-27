@@ -116,7 +116,7 @@ export async function searchClientes(term: string, companyId?: string): Promise<
     .from("sienge_parcelas_receber")
     .select("client_id, client_name")
     .ilike("client_name", `%${term.trim()}%`)
-    .gt("current_balance", 0)
+    .or("current_balance.gt.0,current_balance_with_addition.gt.0")
     .limit(500);
   if (companyId) query = query.eq("company_id", companyId);
   const { data, error } = await query;
@@ -134,10 +134,10 @@ export async function listContratosByCliente(clientId: string, companyId?: strin
   let query = supabase
     .from("sienge_parcelas_receber")
     .select(
-      "bill_id, bill_document, client_id, client_name, company_id, company_name, business_area_name, main_unit, issue_date",
+      "bill_id, bill_document, client_id, client_name, company_id, company_name, business_area_name, cost_center_name, main_unit, issue_date, bill_private_area, raw_data",
     )
     .eq("client_id", clientId)
-    .gt("current_balance", 0)
+    .or("current_balance.gt.0,current_balance_with_addition.gt.0")
     .limit(5000);
   if (companyId) query = query.eq("company_id", companyId);
   const { data, error } = await query;
@@ -157,9 +157,11 @@ export async function listContratosByCliente(clientId: string, companyId?: strin
         client_name: row.client_name ?? "",
         company_id: String(row.company_id ?? ""),
         company_name: row.company_name ?? "",
-        business_area_name: row.business_area_name,
+        business_area_name: row.business_area_name ?? getEnterpriseName(row),
+        cost_center_name: row.cost_center_name,
         main_unit: row.main_unit,
         issue_date: row.issue_date,
+        bill_private_area: row.bill_private_area ?? row.raw_data?.bill?.privateArea ?? null,
         parcelasCount: 1,
       });
     }
