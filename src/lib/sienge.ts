@@ -3,6 +3,14 @@ import { createClient } from "@supabase/supabase-js";
 const supabase = createClient(
   "https://vvtympzatclvjaqucebr.supabase.co",
   "REMOVIDO_CHAVE_ANON",
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      storageKey: 'sienge-readonly-client',
+    },
+  },
 );
 
 export interface EmpresaSienge {
@@ -21,8 +29,10 @@ export interface ContratoSienge {
   company_id: string;
   company_name: string;
   business_area_name: string | null;
+  cost_center_name?: string | null;
   main_unit: string | null;
   issue_date: string | null;
+  bill_private_area?: number | null;
   parcelasCount: number;
 }
 export interface SiengeParcelaRow {
@@ -40,11 +50,18 @@ export interface SiengeParcelaRow {
   client_name: string | null;
   company_name: string | null;
   business_area_name: string | null;
+  cost_center_name?: string | null;
   main_unit: string | null;
+  bill_private_area?: number | null;
+  units?: Array<{ id?: number; name?: string }> | null;
   raw_data?: {
     bill?: {
       units?: Array<{ id: number; name: string }>;
       costCenter?: { id: number; name: string };
+      customer?: { id?: number; name?: string; document?: string | null };
+      privateArea?: number | null;
+      emissionDate?: string | null;
+      document?: string | null;
     };
   } | null;
 }
@@ -52,9 +69,22 @@ export interface SiengeParcelaRow {
 /** Extrai o nome da unidade/lote a partir do raw_data do Sienge.
  *  Ex: "Lote 113", "Lote 07" */
 export function extractUnitName(row: SiengeParcelaRow): string | null {
-  const units = row.raw_data?.bill?.units;
+  const units = row.units ?? row.raw_data?.bill?.units;
   if (!units || units.length === 0) return null;
   return units[0].name ?? null;
+}
+
+function getEnterpriseName(row: Partial<SiengeParcelaRow>): string {
+  return (
+    row.business_area_name ??
+    row.cost_center_name ??
+    row.raw_data?.bill?.costCenter?.name ??
+    ''
+  ).trim();
+}
+
+function getBillDocument(row: Partial<SiengeParcelaRow>): string {
+  return row.bill_document ?? row.raw_data?.bill?.document ?? '';
 }
 
 /** Retorna todos os empreendimentos distintos via RPC SECURITY DEFINER
