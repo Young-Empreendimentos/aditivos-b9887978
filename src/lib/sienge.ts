@@ -36,7 +36,7 @@ export interface ContratoSienge {
   parcelasCount: number;
 }
 export interface SiengeParcelaRow {
-  installment_number: number | null;
+  installment_number: number | string | null;
   payment_term_description: string | null;
   due_date: string | null;
   original_amount: number | null;
@@ -46,6 +46,7 @@ export interface SiengeParcelaRow {
   discount_amount: number | null;
   bill_id: number | string | null;
   bill_document: string | null;
+  document_number?: string | null;
   bill_emission_date: string | null; // data de emissão do contrato (YYYY-MM-DD)
   client_name: string | null;
   company_name: string | null;
@@ -84,7 +85,7 @@ function getEnterpriseName(row: Partial<SiengeParcelaRow>): string {
 }
 
 function getBillDocument(row: Partial<SiengeParcelaRow>): string {
-  return row.bill_document ?? row.raw_data?.bill?.document ?? '';
+  return row.bill_document ?? row.document_number ?? row.raw_data?.bill?.document ?? '';
 }
 
 /** Retorna todos os empreendimentos distintos via RPC SECURITY DEFINER
