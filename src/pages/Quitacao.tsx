@@ -150,7 +150,17 @@ const Quitacao = () => {
       const nomeEmp =
         dadosContrato?.contrato?.empreendimento ??
         selectedContrato.business_area_name ??
+        selectedContrato.company_name ??
         '';
+
+      if (!nomeEmp.trim()) {
+        toast.error(
+          'Não foi possível identificar o empreendimento deste contrato. Verifique os dados no Sienge.'
+        );
+        setCalculating(false);
+        return;
+      }
+
       const cfg = await getQuitacaoConfig(nomeEmp);
 
       if (!cfg) {
