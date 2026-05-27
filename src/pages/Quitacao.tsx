@@ -142,30 +142,24 @@ const Quitacao = () => {
         selectedContrato.bill_id,
         selectedContrato.bill_document
       );
-      console.log('[Quitacao] rows:', rows.length, rows[0]);
-
       // 2. Dados do contrato (valor total + empreendimento)
       const dadosContrato = await getDadosContrato(selectedContrato.bill_id);
-      console.log('[Quitacao] dadosContrato:', dadosContrato);
 
       // 3. Config de taxa do empreendimento (Firestore quitacao_configuracoes)
       const nomeEmp =
         dadosContrato?.contrato?.empreendimento ??
         selectedContrato.business_area_name ??
-        selectedContrato.company_name ??
         '';
-      console.log('[Quitacao] nomeEmp:', JSON.stringify(nomeEmp), 'bill_id:', selectedContrato.bill_id, 'business_area_name:', selectedContrato.business_area_name);
 
       if (!nomeEmp.trim()) {
         toast.error(
-          'Não foi possível identificar o empreendimento deste contrato. Verifique os dados no Sienge.'
+          `Não foi possível identificar o empreendimento deste contrato (bill_id: ${selectedContrato.bill_id}). Verifique os dados no Sienge.`
         );
         setCalculating(false);
         return;
       }
 
       const cfg = await getQuitacaoConfig(nomeEmp);
-      console.log('[Quitacao] cfg:', cfg);
 
       if (!cfg) {
         toast.error(
