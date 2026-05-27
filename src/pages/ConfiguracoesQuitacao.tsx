@@ -109,6 +109,8 @@ function RegraDialog({
         pago_max: r.pago_max,
         taxa: Number(r.taxa),
         ...(r.descricao ? { descricao: r.descricao } : {}),
+        ...(r.data_contrato_min ? { data_contrato_min: r.data_contrato_min } : { data_contrato_min: null }),
+        ...(r.data_contrato_max ? { data_contrato_max: r.data_contrato_max } : { data_contrato_max: null }),
       }));
       // Busca taxa_padrao atual para não sobrescrever
       const current = await getQuitacaoConfig(nomeEmp);
