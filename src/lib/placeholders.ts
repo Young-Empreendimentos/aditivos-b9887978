@@ -162,6 +162,9 @@ export function buildPlaceholders(
     VALOR_TOTAL: fmtValor(form.valor_total),
     // Comprador
     NOME_COMPRADOR: c.nome,
+    NOME_CLIENTE: c.nome,
+    CLIENTE: c.nome,
+    COMPRADOR: c.nome,
     NOME_DEVEDOR: nomeDevedor,
     NOME_DEVEDORES: nomeDevedor,
     DEVEDOR: nomeDevedor,
@@ -198,6 +201,12 @@ export function buildPlaceholders(
     // Assinaturas: nomes isolados para bloco de assinatura de 2 colunas
     CLIENTE1: c.nome,
     CLIENTE2: mostrarConjuge ? j.nome : '',
+    CLIENTE_1: c.nome,
+    CLIENTE_2: mostrarConjuge ? j.nome : '',
+    NOME_CLIENTE_1: c.nome,
+    NOME_CLIENTE_2: mostrarConjuge ? j.nome : '',
+    NOME_DEVEDOR_1: c.nome,
+    NOME_DEVEDOR_2: mostrarConjuge ? j.nome : '',
     // Valor da dívida conforme matrícula (preenchimento manual pelo usuário)
     VALOR_ANTIGO: fmtValor(form.valor_antigo_matricula),
   };

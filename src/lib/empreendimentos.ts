@@ -20,6 +20,8 @@ export interface RegraQuitacao {
   pago_max: number | null;       // % pago máximo, null = 100
   taxa: number;                  // % a.m., ex: 0.40 = 0,40% a.m.
   descricao?: string;
+  data_contrato_min?: string | null;
+  data_contrato_max?: string | null;
 }
 
 export interface Empreendimento {

@@ -50,6 +50,12 @@ function todayIso(): string {
   return new Date().toISOString().split('T')[0];
 }
 
+function parseInstallmentNumber(value: string | number | null | undefined): number {
+  if (typeof value === 'number') return value;
+  const match = String(value ?? '').match(/\d+/);
+  return match ? Number(match[0]) : 0;
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 const Quitacao = () => {
@@ -192,7 +198,7 @@ const Quitacao = () => {
         return new Date(y, m - 1, d);
       };
       const parcelas = rows.map((p) => ({
-        numero: p.installment_number ?? 0,
+        numero: parseInstallmentNumber(p.installment_number),
         dataVencimento: parseDateLocal(p.due_date),
         // valorAtual: saldo completo com juros e acréscimos (usado no cálculo VP)
         valorAtual: Number(p.current_balance_with_addition ?? p.current_balance ?? 0),
