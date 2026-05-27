@@ -199,6 +199,16 @@ export function StepDadosContrato({
               onChange={(e) => onFormChange({ ...form, matricula_origem: e.target.value })}
             />
           </Field>
+          <Field label="Valor antigo (R$)">
+            <Input
+              value={form.valor_antigo_matricula}
+              placeholder="ex: 85000.00"
+              onChange={(e) => onFormChange({ ...form, valor_antigo_matricula: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Valor total da dívida conforme consta na matrícula do lote no Cartório de Registro de Imóveis.
+            </p>
+          </Field>
           <Field label="Cidade do empreendimento">
             <Input value={form.cidade_empreendimento} onChange={(e) => onFormChange({ ...form, cidade_empreendimento: e.target.value })} />
           </Field>

@@ -31,6 +31,7 @@ export interface DadosContratoForm {
   area: string;
   matricula: string;
   matricula_origem: string;  // "tendo origem na matrícula nº X" — preenchimento manual
+  valor_antigo_matricula: string; // valor da dívida conforme consta na matrícula do lote (preenchimento manual)
   onus: string;
   cidade_empreendimento: string;
   estado_empreendimento: string;
@@ -71,6 +72,7 @@ export function emptyDadosContratoForm(): DadosContratoForm {
     area: "",
     matricula: "",
     matricula_origem: "",
+    valor_antigo_matricula: "",
     onus: "",
     cidade_empreendimento: "",
     estado_empreendimento: "",

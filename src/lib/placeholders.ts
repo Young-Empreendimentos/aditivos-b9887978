@@ -198,5 +198,7 @@ export function buildPlaceholders(
     // Assinaturas: nomes isolados para bloco de assinatura de 2 colunas
     CLIENTE1: c.nome,
     CLIENTE2: mostrarConjuge ? j.nome : '',
+    // Valor da dívida conforme matrícula (preenchimento manual pelo usuário)
+    VALOR_ANTIGO: fmtValor(form.valor_antigo_matricula),
   };
 }
