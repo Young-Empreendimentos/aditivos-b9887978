@@ -19,16 +19,32 @@ import {
   emptyParte,
 } from '@/types/dadosContrato';
 import { toast } from 'sonner';
+import type { ClienteSienge, ContratoSienge } from '@/lib/sienge';
+import type { Parcela } from '@/types/contract';
 
 interface Props {
   billId: string | null;
   empreendimentoFallback: string;
   numeroContratoFallback: string;
+  selectedCliente: ClienteSienge | null;
+  selectedContrato: ContratoSienge | null;
+  parcelas: Parcela[];
   form: DadosContratoForm;
   onFormChange: (f: DadosContratoForm) => void;
   onBack: () => void;
   onNext: () => void;
 }
+
+const keep = (next: string | number | null | undefined, prev = '') => {
+  if (next === null || next === undefined) return prev;
+  const value = String(next).trim();
+  return value || prev;
+};
+
+const extractLote = (unit: string | null | undefined) => {
+  const value = (unit ?? '').trim();
+  return value.replace(/^\s*lote\s*/i, '').trim() || value;
+};
 
 const ESTADO_CIVIL_OPTS = [
   'Solteiro(a)',
@@ -80,20 +96,45 @@ function applyApiToForm(api: DadosContrato, prev: DadosContratoForm): DadosContr
   const estadoPrincipal = principal?.endereco?.estado ?? '';
   return {
     ...prev,
-    empreendimento: api.contrato.empreendimento ?? prev.empreendimento,
-    num_lote: api.unidade?.num_lote ?? '',
-    area: api.unidade?.area != null ? String(api.unidade.area) : '',
-    matricula: api.unidade?.matricula != null ? String(api.unidade.matricula) : '',
-    onus: api.unidade?.onus ?? '',
+    empreendimento: keep(api.contrato?.empreendimento, prev.empreendimento),
+    num_lote: keep(api.unidade?.num_lote, prev.num_lote),
+    area: keep(api.unidade?.area, prev.area),
+    matricula: keep(api.unidade?.matricula, prev.matricula),
+    onus: keep(api.unidade?.onus, prev.onus),
     cidade_empreendimento: prev.cidade_empreendimento || cidadePrincipal,
     estado_empreendimento: prev.estado_empreendimento || estadoPrincipal,
-    numero_contrato: api.contrato.numero ?? prev.numero_contrato,
-    data_contrato: (api.contrato.data_contrato ?? '').slice(0, 10),
-    valor_total: api.contrato.valor_total != null ? String(api.contrato.valor_total) : '',
-    comprador: parteFromApi(principal),
+    numero_contrato: keep(api.contrato?.numero, prev.numero_contrato),
+    data_contrato: keep((api.contrato?.data_contrato ?? api.contrato?.data_emissao ?? '').slice(0, 10), prev.data_contrato),
+    valor_total: keep(api.contrato?.valor_total, prev.valor_total),
+    comprador: principal ? parteFromApi(principal) : prev.comprador,
     temConjuge: !!conjuge,
-    conjuge: parteFromApi(conjuge),
+    conjuge: conjuge ? parteFromApi(conjuge) : prev.conjuge,
     data_casamento: prev.data_casamento,
+  };
+}
+
+function applyKnownDataToForm(
+  prev: DadosContratoForm,
+  selectedCliente: ClienteSienge | null,
+  selectedContrato: ContratoSienge | null,
+  parcelas: Parcela[],
+  empreendimentoFallback: string,
+  numeroContratoFallback: string,
+): DadosContratoForm {
+  const saldoAtualBanco = parcelas.reduce((sum, p) => sum + Number(p.saldoAtual || 0), 0);
+  return {
+    ...prev,
+    empreendimento: prev.empreendimento || empreendimentoFallback || selectedContrato?.business_area_name || '',
+    num_lote: prev.num_lote || extractLote(selectedContrato?.main_unit),
+    area: prev.area || keep(selectedContrato?.bill_private_area),
+    numero_contrato: prev.numero_contrato || numeroContratoFallback || selectedContrato?.bill_document || '',
+    data_contrato: prev.data_contrato || (selectedContrato?.issue_date ?? '').slice(0, 10),
+    valor_total: prev.valor_total || (saldoAtualBanco > 0 ? String(saldoAtualBanco) : ''),
+    valor_antigo_matricula: prev.valor_antigo_matricula || (saldoAtualBanco > 0 ? String(saldoAtualBanco) : ''),
+    comprador: {
+      ...prev.comprador,
+      nome: prev.comprador.nome || selectedCliente?.client_name || selectedContrato?.client_name || '',
+    },
   };
 }
 
@@ -101,6 +142,9 @@ export function StepDadosContrato({
   billId,
   empreendimentoFallback,
   numeroContratoFallback,
+  selectedCliente,
+  selectedContrato,
+  parcelas,
   form,
   onFormChange,
   onBack,
@@ -114,23 +158,28 @@ export function StepDadosContrato({
     if (!force && loadedFor === billId) return;
     setLoading(true);
     try {
+      const knownForm = applyKnownDataToForm(
+        form,
+        selectedCliente,
+        selectedContrato,
+        parcelas,
+        empreendimentoFallback,
+        numeroContratoFallback,
+      );
+      onFormChange(knownForm);
       const api = await getDadosContrato(billId);
       if (api) {
-        onFormChange(applyApiToForm(api, form));
+        onFormChange(applyApiToForm(api, knownForm));
         toast.success('Dados do contrato carregados');
       } else {
-        // fallback: preserve known values
-        onFormChange({
-          ...form,
-          empreendimento: form.empreendimento || empreendimentoFallback,
-          numero_contrato: form.numero_contrato || numeroContratoFallback,
-        });
+        onFormChange(knownForm);
         toast.warning('Sem dados retornados. Preencha manualmente.');
       }
       setLoadedFor(billId);
     } catch (err) {
       console.error(err);
-      toast.error('Erro ao buscar dados do contrato');
+      onFormChange(applyKnownDataToForm(form, selectedCliente, selectedContrato, parcelas, empreendimentoFallback, numeroContratoFallback));
+      toast.warning('Não foi possível completar a busca; mantive os dados já carregados nas etapas anteriores.');
     } finally {
       setLoading(false);
     }
