@@ -253,9 +253,72 @@ export async function getDadosContrato(billId: number | string): Promise<DadosCo
   const { data, error } = await supabase.rpc("get_dados_contrato", {
     p_bill_id: typeof billId === "string" ? Number(billId) : billId,
   });
-  if (error) {
-    console.error("Erro ao buscar dados do contrato:", error);
+  if (!error && data) return data as DadosContrato;
+
+  if (error) console.warn("[getDadosContrato] RPC sem retorno, usando fallback de parcelas:", error);
+
+  const { data: rows, error: rowError } = await supabase
+    .from("sienge_parcelas_receber")
+    .select("*")
+    .eq("bill_id", typeof billId === "string" ? Number(billId) : billId)
+    .order("due_date", { ascending: true })
+    .limit(5000);
+
+  if (rowError) {
+    console.error("Erro ao buscar dados do contrato:", rowError);
     return null;
   }
-  return (data as DadosContrato) ?? null;
+
+  const first = (rows ?? [])[0] as SiengeParcelaRow | undefined;
+  if (!first) return null;
+
+  const openRows = (rows ?? []).filter((r: SiengeParcelaRow) =>
+    Number(r.current_balance_with_addition ?? r.current_balance ?? 0) > 0,
+  );
+  const totalAberto = openRows.reduce(
+    (sum: number, r: SiengeParcelaRow) => sum + Number(r.current_balance_with_addition ?? r.current_balance ?? 0),
+    0,
+  );
+  const unitName = extractUnitName(first) ?? first.main_unit ?? '';
+  const customer = first.raw_data?.bill?.customer;
+
+  return {
+    contrato: {
+      id: Number(first.bill_id ?? billId),
+      numero: getBillDocument(first),
+      empresa: first.company_name ?? '',
+      empreendimento: getEnterpriseName(first),
+      data_contrato: first.bill_emission_date ?? first.raw_data?.bill?.emissionDate ?? null,
+      data_emissao: first.bill_emission_date ?? first.raw_data?.bill?.emissionDate ?? null,
+      valor_total: totalAberto || null,
+    },
+    unidade: {
+      nome: unitName,
+      num_lote: unitName.replace(/^\s*lote\s*/i, '').trim() || unitName,
+      matricula: null,
+      area: first.bill_private_area ?? first.raw_data?.bill?.privateArea ?? null,
+      onus: null,
+    },
+    partes: [
+      {
+        nome: first.client_name ?? customer?.name ?? '',
+        cpf: customer?.document ?? null,
+        email: null,
+        sexo: null,
+        nascimento: null,
+        naturalidade: null,
+        nacionalidade: null,
+        profissao: null,
+        estado_civil: null,
+        rg: null,
+        orgao_emissor: null,
+        data_emissao_rg: null,
+        telefone: null,
+        telefone_comercial: null,
+        endereco: { logradouro: null, numero: null, bairro: null, cidade: null, estado: null, cep: null },
+        is_conjuge: false,
+        is_principal: true,
+      },
+    ],
+  };
 }
