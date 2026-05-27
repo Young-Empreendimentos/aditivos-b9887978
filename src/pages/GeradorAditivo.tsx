@@ -194,6 +194,9 @@ const GeradorAditivo = () => {
             billId={selectedContrato?.bill_id ?? null}
             empreendimentoFallback={selectedContrato?.business_area_name ?? ''}
             numeroContratoFallback={selectedContrato?.bill_document ?? ''}
+            selectedCliente={selectedCliente}
+            selectedContrato={selectedContrato}
+            parcelas={parcelas}
             form={dadosForm}
             onFormChange={setDadosForm}
             onBack={() => setCurrentStep(3)}
