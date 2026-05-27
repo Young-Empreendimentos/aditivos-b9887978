@@ -148,7 +148,7 @@ const Quitacao = () => {
 
       // 3. Config de taxa do empreendimento (Firestore quitacao_configuracoes)
       const nomeEmp =
-        dadosContrato?.contrato.empreendimento ??
+        dadosContrato?.contrato?.empreendimento ??
         selectedContrato.business_area_name ??
         '';
       const cfg = await getQuitacaoConfig(nomeEmp);
@@ -192,7 +192,7 @@ const Quitacao = () => {
         valorCorrigido: Number(p.corrected_balance_amount ?? p.original_amount ?? 0),
       }));
 
-      const valorTotalContrato = Number(dadosContrato?.contrato.valor_total ?? 0);
+      const valorTotalContrato = Number(dadosContrato?.contrato?.valor_total ?? 0);
 
       // 6. Montar objeto compatível com calcularQuitacao
       // Se lote não habilitado: taxa = 0 → calcVP retorna valorAtual sem desconto
