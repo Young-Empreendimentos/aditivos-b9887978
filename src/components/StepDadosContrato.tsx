@@ -72,23 +72,24 @@ function parteFromApi(p: ParteContrato | undefined): ParteForm {
 }
 
 function applyApiToForm(api: DadosContrato, prev: DadosContratoForm): DadosContratoForm {
-  const partes = api.partes ?? [];
+  // api.partes pode vir null do RPC — tratar como lista vazia
+  const partes = Array.isArray(api.partes) ? api.partes : [];
   const principal = partes.find((p) => p.is_principal) ?? partes[0];
   const conjuge = partes.find((p) => p.is_conjuge);
   const cidadePrincipal = principal?.endereco?.cidade ?? '';
   const estadoPrincipal = principal?.endereco?.estado ?? '';
   return {
     ...prev,
-    empreendimento: api.contrato?.empreendimento ?? prev.empreendimento,
+    empreendimento: api.contrato.empreendimento ?? prev.empreendimento,
     num_lote: api.unidade?.num_lote ?? '',
     area: api.unidade?.area != null ? String(api.unidade.area) : '',
     matricula: api.unidade?.matricula != null ? String(api.unidade.matricula) : '',
     onus: api.unidade?.onus ?? '',
     cidade_empreendimento: prev.cidade_empreendimento || cidadePrincipal,
     estado_empreendimento: prev.estado_empreendimento || estadoPrincipal,
-    numero_contrato: api.contrato?.numero ?? prev.numero_contrato,
-    data_contrato: (api.contrato?.data_contrato ?? '').slice(0, 10),
-    valor_total: api.contrato?.valor_total != null ? String(api.contrato.valor_total) : '',
+    numero_contrato: api.contrato.numero ?? prev.numero_contrato,
+    data_contrato: (api.contrato.data_contrato ?? '').slice(0, 10),
+    valor_total: api.contrato.valor_total != null ? String(api.contrato.valor_total) : '',
     comprador: parteFromApi(principal),
     temConjuge: !!conjuge,
     conjuge: parteFromApi(conjuge),

@@ -225,5 +225,9 @@ export async function getDadosContrato(billId: number | string): Promise<DadosCo
     console.error("Erro ao buscar dados do contrato:", error);
     return null;
   }
-  return (data as DadosContrato) ?? null;
+  // Supabase RPCs podem retornar array ou objeto dependendo da definição da função
+  const result = Array.isArray(data) ? (data[0] ?? null) : (data ?? null);
+  // Validar estrutura mínima esperada
+  if (!result || typeof result !== 'object' || !result.contrato) return null;
+  return result as DadosContrato;
 }
