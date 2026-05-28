@@ -1,7 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, List, Loader2, Plus, Save, Settings2, Trash2 } from 'lucide-react';
+import { ArrowLeft, GripVertical, List, Loader2, Plus, Save, Settings2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,11 +71,154 @@ interface EmpRow {
 // ─── Dialog de regras específicas ────────────────────────────────────────────
 
 interface RegraRow extends RegraQuitacao {
-  _key: number;
+  _key: string;
 }
 
-function emptyRegra(key: number): RegraRow {
-  return { _key: key, is_registrado: null, pago_min: null, pago_max: null, taxa: 0, descricao: '' };
+function emptyRegra(): RegraRow {
+  return {
+    _key: String(Date.now() + Math.random()),
+    is_registrado: null,
+    pago_min: null,
+    pago_max: null,
+    taxa: 0,
+    descricao: '',
+  };
+}
+
+// Linha sortável individual
+function SortableRegraRow({
+  regra,
+  index,
+  onUpdate,
+  onRemove,
+}: {
+  regra: RegraRow;
+  index: number;
+  onUpdate: (key: string, patch: Partial<RegraRow>) => void;
+  onRemove: (key: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: regra._key });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1 : undefined,
+    position: isDragging ? ('relative' as const) : undefined,
+  };
+
+  return (
+    <TableRow ref={setNodeRef} style={style}>
+      {/* Handle de arrasto */}
+      <TableCell className="w-8 px-1 text-center">
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted touch-none"
+          tabIndex={-1}
+          type="button"
+          title="Arrastar para reordenar"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      </TableCell>
+      {/* Nº ordem */}
+      <TableCell className="w-8 text-center text-xs font-mono text-muted-foreground select-none">
+        {index + 1}
+      </TableCell>
+      <TableCell>
+        <Select
+          value={regra.is_registrado === null ? 'null' : String(regra.is_registrado)}
+          onValueChange={(v) =>
+            onUpdate(regra._key, {
+              is_registrado: v === 'null' ? null : v === 'true',
+            })
+          }
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue>
+              {regra.is_registrado === null ? 'Qualquer' : regra.is_registrado ? 'Sim' : 'Não'}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="null">Qualquer</SelectItem>
+            <SelectItem value="true">Sim</SelectItem>
+            <SelectItem value="false">Não</SelectItem>
+          </SelectContent>
+        </Select>
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number" min={0} max={100} step={1} placeholder="0"
+          value={regra.pago_min ?? ''}
+          onChange={(e) =>
+            onUpdate(regra._key, { pago_min: e.target.value === '' ? null : Number(e.target.value) })
+          }
+          className="h-8 w-20 text-right tabular-nums"
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number" min={0} max={100} step={1} placeholder="100"
+          value={regra.pago_max ?? ''}
+          onChange={(e) =>
+            onUpdate(regra._key, { pago_max: e.target.value === '' ? null : Number(e.target.value) })
+          }
+          className="h-8 w-20 text-right tabular-nums"
+        />
+      </TableCell>
+      <TableCell>
+        <div className="flex gap-1 items-center">
+          <Input
+            type="date"
+            value={regra.data_contrato_min ?? ''}
+            onChange={(e) =>
+              onUpdate(regra._key, { data_contrato_min: e.target.value || null })
+            }
+            className="h-8 w-32 tabular-nums text-xs"
+            title="Data contrato de"
+          />
+          <span className="text-xs text-muted-foreground">até</span>
+          <Input
+            type="date"
+            value={regra.data_contrato_max ?? ''}
+            onChange={(e) =>
+              onUpdate(regra._key, { data_contrato_max: e.target.value || null })
+            }
+            className="h-8 w-32 tabular-nums text-xs"
+            title="Data contrato até"
+          />
+        </div>
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number" min={0} max={100} step={0.01}
+          value={regra.taxa}
+          onChange={(e) => onUpdate(regra._key, { taxa: Number(e.target.value) })}
+          className="h-8 w-24 text-right tabular-nums"
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          placeholder="Ex: Período sem desconto"
+          value={regra.descricao ?? ''}
+          onChange={(e) => onUpdate(regra._key, { descricao: e.target.value })}
+          className="h-8 text-xs"
+        />
+      </TableCell>
+      <TableCell>
+        <Button
+          size="icon" variant="ghost"
+          className="h-7 w-7 text-destructive hover:text-destructive"
+          onClick={() => onRemove(regra._key)}
+          type="button"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
 }
 
 function RegraDialog({
@@ -78,19 +238,45 @@ function RegraDialog({
   const [saving, setSaving] = useState(false);
   const { user } = useAuth();
 
+  // Evita re-inicializar ao salvar (só recria quando o dialog abre)
+  const openRef = useRef(false);
   useEffect(() => {
-    if (open) setRegras(regrasIniciais.map((r, i) => ({ ...r, _key: i })));
+    if (open && !openRef.current) {
+      setRegras(
+        regrasIniciais.map((r, i) => ({
+          ...r,
+          _key: String(i) + '_' + String(Date.now()),
+        }))
+      );
+    }
+    openRef.current = open;
   }, [open, regrasIniciais]);
 
-  function addRegra() {
-    setRegras((prev) => [...prev, emptyRegra(Date.now())]);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setRegras((prev) => {
+        const oldIndex = prev.findIndex((r) => r._key === active.id);
+        const newIndex = prev.findIndex((r) => r._key === over.id);
+        return arrayMove(prev, oldIndex, newIndex);
+      });
+    }
   }
 
-  function removeRegra(key: number) {
+  function addRegra() {
+    setRegras((prev) => [...prev, emptyRegra()]);
+  }
+
+  function removeRegra(key: string) {
     setRegras((prev) => prev.filter((r) => r._key !== key));
   }
 
-  function updateRegra(key: number, patch: Partial<RegraRow>) {
+  function updateRegra(key: string, patch: Partial<RegraRow>) {
     setRegras((prev) => prev.map((r) => (r._key === key ? { ...r, ...patch } : r)));
   }
 
@@ -103,7 +289,7 @@ function RegraDialog({
     }
     setSaving(true);
     try {
-      const clean: RegraQuitacao[] = regras.map(({ _key, ...r }) => ({
+      const clean: RegraQuitacao[] = regras.map(({ _key: _k, ...r }) => ({
         is_registrado: r.is_registrado,
         pago_min: r.pago_min,
         pago_max: r.pago_max,
@@ -112,7 +298,6 @@ function RegraDialog({
         ...(r.data_contrato_min ? { data_contrato_min: r.data_contrato_min } : { data_contrato_min: null }),
         ...(r.data_contrato_max ? { data_contrato_max: r.data_contrato_max } : { data_contrato_max: null }),
       }));
-      // Busca taxa_padrao atual para não sobrescrever
       const current = await getQuitacaoConfig(nomeEmp);
       await saveQuitacaoConfig(
         { empreendimento: nomeEmp, taxa_padrao: current?.taxa_padrao ?? 0, regras: clean },
@@ -128,23 +313,24 @@ function RegraDialog({
     }
   }
 
-  const registradoLabel = (v: boolean | null) =>
-    v === true ? 'Sim' : v === false ? 'Não' : 'Qualquer';
-
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Regras específicas — {nomeEmp}</DialogTitle>
         </DialogHeader>
         <p className="text-xs text-muted-foreground -mt-2 mb-3">
-          O sistema usa a <strong>primeira regra que bater</strong> nos 3 critérios.
+          O sistema usa a <strong>primeira regra que bater</strong> nos critérios (em ordem).
           Se nenhuma bater, usa a taxa padrão.
+          <span className="ml-1 text-[11px]">— Arraste <GripVertical className="inline h-3 w-3 align-middle" /> para reordenar.</span>
         </p>
+
         <div className="max-h-[50vh] overflow-auto">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8" />
+                <TableHead className="w-8 text-center text-xs">#</TableHead>
                 <TableHead className="w-28">Registrado?</TableHead>
                 <TableHead className="w-24">% Pago min</TableHead>
                 <TableHead className="w-24">% Pago max</TableHead>
@@ -157,108 +343,39 @@ function RegraDialog({
             <TableBody>
               {regras.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-6">
+                  <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-6">
                     Nenhuma regra específica. Clique em "+ Adicionar" para criar.
                   </TableCell>
                 </TableRow>
               )}
-              {regras.map((r) => (
-                <TableRow key={r._key}>
-                  <TableCell>
-                    <Select
-                      value={r.is_registrado === null ? 'null' : String(r.is_registrado)}
-                      onValueChange={(v) =>
-                        updateRegra(r._key, {
-                          is_registrado: v === 'null' ? null : v === 'true',
-                        })
-                      }
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue>{registradoLabel(r.is_registrado)}</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="null">Qualquer</SelectItem>
-                        <SelectItem value="true">Sim</SelectItem>
-                        <SelectItem value="false">Não</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number" min={0} max={100} step={1} placeholder="0"
-                      value={r.pago_min ?? ''}
-                      onChange={(e) =>
-                        updateRegra(r._key, { pago_min: e.target.value === '' ? null : Number(e.target.value) })
-                      }
-                      className="h-8 w-20 text-right tabular-nums"
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={regras.map((r) => r._key)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {regras.map((r, idx) => (
+                    <SortableRegraRow
+                      key={r._key}
+                      regra={r}
+                      index={idx}
+                      onUpdate={updateRegra}
+                      onRemove={removeRegra}
                     />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number" min={0} max={100} step={1} placeholder="100"
-                      value={r.pago_max ?? ''}
-                      onChange={(e) =>
-                        updateRegra(r._key, { pago_max: e.target.value === '' ? null : Number(e.target.value) })
-                      }
-                      className="h-8 w-20 text-right tabular-nums"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1 items-center">
-                      <Input
-                        type="date"
-                        value={r.data_contrato_min ?? ''}
-                        onChange={(e) =>
-                          updateRegra(r._key, { data_contrato_min: e.target.value || null })
-                        }
-                        className="h-8 w-32 tabular-nums text-xs"
-                        title="Data contrato de"
-                      />
-                      <span className="text-xs text-muted-foreground">até</span>
-                      <Input
-                        type="date"
-                        value={r.data_contrato_max ?? ''}
-                        onChange={(e) =>
-                          updateRegra(r._key, { data_contrato_max: e.target.value || null })
-                        }
-                        className="h-8 w-32 tabular-nums text-xs"
-                        title="Data contrato até"
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number" min={0} max={100} step={0.01}
-                      value={r.taxa}
-                      onChange={(e) => updateRegra(r._key, { taxa: Number(e.target.value) })}
-                      className="h-8 w-24 text-right tabular-nums"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      placeholder="Ex: Período sem desconto"
-                      value={r.descricao ?? ''}
-                      onChange={(e) => updateRegra(r._key, { descricao: e.target.value })}
-                      className="h-8 text-xs"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      size="icon" variant="ghost"
-                      className="h-7 w-7 text-destructive hover:text-destructive"
-                      onClick={() => removeRegra(r._key)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+                  ))}
+                </SortableContext>
+              </DndContext>
             </TableBody>
           </Table>
         </div>
+
         <Button variant="outline" size="sm" onClick={addRegra} className="w-fit">
           <Plus className="h-3.5 w-3.5" /> Adicionar regra
         </Button>
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>Fechar</Button>
           <Button onClick={handleSave} disabled={saving}>
@@ -414,9 +531,7 @@ export default function ConfiguracoesQuitacao() {
     (async () => {
       setLoading(true);
       try {
-        // Fonte: empreendimentos reais do Sienge (business_area_name)
         const nomes = await listEmpreendimentosSienge();
-        // Overlay: configurações salvas no Firestore
         const configs = await Promise.all(nomes.map((n) => getQuitacaoConfig(n).catch(() => null)));
         if (cancelled) return;
         setRows(
@@ -525,7 +640,7 @@ export default function ConfiguracoesQuitacao() {
               <TableBody>
                 {loading && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-8">
+                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
                       <Loader2 className="inline h-4 w-4 animate-spin mr-2" />
                       Carregando empreendimentos do Sienge…
                     </TableCell>
@@ -533,7 +648,7 @@ export default function ConfiguracoesQuitacao() {
                 )}
                 {!loading && rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-8">
+                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
                       Nenhum empreendimento encontrado no Sienge.
                     </TableCell>
                   </TableRow>
