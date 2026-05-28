@@ -196,14 +196,14 @@ export function Step1({
     setLoadingConfig(true);
     try {
       const cfg = await getConfiguracao(id);
-      const file = cfg ? await fetchTemplateAsFile(cfg) : null;
+      const file = cfg ? await fetchTemplateAsFile(cfg, isRegistrado) : null;
       if (!cfg || !file) {
         setConfigMissing(true);
         setLoadedCfg(null);
         return;
       }
       onTemplateFile(file);
-      setConfigTemplateName(cfg.templateName ?? file.name);
+      setConfigTemplateName(file.name);
       setLoadedCfg(cfg);
       // Aplica já a taxa correta considerando o status de registro atual
       onTaxaJuros(buscarTaxaAditivo(cfg, isRegistrado));
@@ -507,7 +507,15 @@ export function Step1({
                 onCheckedChange={(checked) => {
                   const v = !!checked;
                   onIsRegistrado(v);
-                  if (loadedCfg) onTaxaJuros(buscarTaxaAditivo(loadedCfg, v));
+                  if (loadedCfg) {
+                    onTaxaJuros(buscarTaxaAditivo(loadedCfg, v));
+                    fetchTemplateAsFile(loadedCfg, v).then((f) => {
+                      if (f) {
+                        onTemplateFile(f);
+                        setConfigTemplateName(f.name);
+                      }
+                    });
+                  }
                 }}
               />
               <Label htmlFor="registrado" className="text-xs cursor-pointer font-normal">

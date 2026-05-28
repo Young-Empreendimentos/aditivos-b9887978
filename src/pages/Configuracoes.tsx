@@ -39,16 +39,24 @@ import {
   type RegraAditivo,
 } from '@/lib/configuracoes';
 
+type TemplateType = 'normal' | 'registrado';
+
 interface Row {
   company_id: string;
   company_name: string;
   taxaJuros: string;
   originalTaxa: number;
   regrasAditivo: RegraAditivo[];
-  hasTemplate: boolean; // só indica presença; o base64 não fica no state
+  // Template não registrado
+  hasTemplate: boolean;
   templateName?: string;
   templateSize?: number;
   pendingFile?: File | null;
+  // Template registrado
+  hasTemplateRegistrado: boolean;
+  templateRegistradoName?: string;
+  templateRegistradoSize?: number;
+  pendingFileRegistrado?: File | null;
   dirty: boolean;
   saving: boolean;
 }
@@ -270,6 +278,10 @@ export default function Configuracoes() {
             templateName: cfg?.templateName,
             templateSize: cfg?.templateSize,
             pendingFile: null,
+            hasTemplateRegistrado: !!cfg?.templateRegistradoBase64,
+            templateRegistradoName: cfg?.templateRegistradoName,
+            templateRegistradoSize: cfg?.templateRegistradoSize,
+            pendingFileRegistrado: null,
             dirty: false,
             saving: false,
           };
@@ -291,27 +303,45 @@ export default function Configuracoes() {
     setRows((prev) => prev.map((r) => (r.company_id === id ? { ...r, ...patch, dirty: true } : r)));
   }
 
-  function onPickTemplate(id: string, file: File) {
+  function onPickTemplate(id: string, file: File, type: TemplateType = 'normal') {
     if (!file.name.toLowerCase().endsWith('.docx')) {
       toast.error('O modelo deve ser um arquivo .docx');
       return;
     }
-    updateRow(id, {
-      pendingFile: file,
-      templateName: file.name,
-      templateSize: file.size,
-    });
+    if (type === 'registrado') {
+      updateRow(id, {
+        pendingFileRegistrado: file,
+        templateRegistradoName: file.name,
+        templateRegistradoSize: file.size,
+      });
+    } else {
+      updateRow(id, {
+        pendingFile: file,
+        templateName: file.name,
+        templateSize: file.size,
+      });
+    }
   }
 
-  async function downloadTemplate(r: Row) {
+  async function downloadTemplate(r: Row, type: TemplateType = 'normal') {
     try {
       let blob: Blob | null = null;
-      if (r.pendingFile) {
-        blob = r.pendingFile;
-      } else if (r.hasTemplate) {
+      const isReg = type === 'registrado';
+      const pending = isReg ? r.pendingFileRegistrado : r.pendingFile;
+      const hasStored = isReg ? r.hasTemplateRegistrado : r.hasTemplate;
+      const b64Key = isReg ? 'templateRegistradoBase64' : 'templateBase64';
+      const nameKey = isReg ? 'templateRegistradoName' : 'templateName';
+      const defaultName = isReg
+        ? (r.templateRegistradoName ?? `${r.company_name}_registrado.docx`)
+        : (r.templateName ?? `${r.company_name}.docx`);
+
+      if (pending) {
+        blob = pending;
+      } else if (hasStored) {
         const cfg = await getConfiguracao(r.company_id);
-        if (cfg?.templateBase64) {
-          const binary = atob(cfg.templateBase64);
+        const b64 = cfg?.[b64Key as keyof typeof cfg] as string | undefined;
+        if (b64) {
+          const binary = atob(b64);
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
           blob = new Blob([bytes], {
@@ -323,7 +353,7 @@ export default function Configuracoes() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = r.templateName ?? `${r.company_name}.docx`;
+      a.download = (isReg ? r.templateRegistradoName : r.templateName) ?? defaultName;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err: unknown) {
@@ -344,10 +374,19 @@ export default function Configuracoes() {
       let templateName = r.templateName;
       let templateSize = r.templateSize;
 
+      let templateRegistradoBase64: string | undefined;
+      let templateRegistradoName = r.templateRegistradoName;
+      let templateRegistradoSize = r.templateRegistradoSize;
+
       if (r.pendingFile) {
         templateBase64 = await fileToBase64(r.pendingFile);
         templateName = r.pendingFile.name;
         templateSize = r.pendingFile.size;
+      }
+      if (r.pendingFileRegistrado) {
+        templateRegistradoBase64 = await fileToBase64(r.pendingFileRegistrado);
+        templateRegistradoName = r.pendingFileRegistrado.name;
+        templateRegistradoSize = r.pendingFileRegistrado.size;
       }
 
       await upsertConfiguracao({
@@ -355,10 +394,12 @@ export default function Configuracoes() {
         company_name: r.company_name,
         taxaJuros: taxa,
         regrasAditivo: r.regrasAditivo,
-        // só envia templateBase64 se houver novo arquivo; senão mantém o atual via merge
         ...(templateBase64 ? { templateBase64 } : {}),
         templateName,
         templateSize,
+        ...(templateRegistradoBase64 ? { templateRegistradoBase64 } : {}),
+        templateRegistradoName,
+        templateRegistradoSize,
         updatedBy: user?.email ?? null,
       });
       toast.success(`Configuração salva: ${r.company_name}`);
@@ -374,6 +415,10 @@ export default function Configuracoes() {
                 templateName,
                 templateSize,
                 pendingFile: null,
+                hasTemplateRegistrado: x.hasTemplateRegistrado || !!templateRegistradoBase64,
+                templateRegistradoName,
+                templateRegistradoSize,
+                pendingFileRegistrado: null,
               }
             : x
         )
@@ -482,41 +527,55 @@ export default function Configuracoes() {
                         </Button>
                       </TableCell>
                       <TableCell className="align-top">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={!canEditTemplate || r.saving}
-                            onClick={() =>
-                              document.getElementById(`tpl-${r.company_id}`)?.click()
-                            }
-                          >
-                            <Upload className="h-3.5 w-3.5" />
-                            {r.templateName ? 'Trocar' : 'Enviar'}
-                          </Button>
-                          <input
-                            id={`tpl-${r.company_id}`}
-                            type="file"
-                            accept=".docx"
-                            hidden
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f) onPickTemplate(r.company_id, f);
-                              e.target.value = '';
-                            }}
-                          />
-                          {r.templateName && (
-                            <button
-                              type="button"
-                              onClick={() => downloadTemplate(r)}
-                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline max-w-[200px] truncate"
-                              title={r.templateName}
-                            >
-                              <Download className="h-3 w-3 shrink-0" />
-                              <span className="truncate">{r.templateName}</span>
-                            </button>
-                          )}
+                        <div className="space-y-2">
+                          {/* Modelo não registrado */}
+                          <div>
+                            <p className="text-[10px] text-muted-foreground mb-1">Não registrado</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Button
+                                type="button" variant="outline" size="sm"
+                                disabled={!canEditTemplate || r.saving}
+                                onClick={() => document.getElementById(`tpl-${r.company_id}`)?.click()}
+                              >
+                                <Upload className="h-3.5 w-3.5" />
+                                {r.templateName ? 'Trocar' : 'Enviar'}
+                              </Button>
+                              <input id={`tpl-${r.company_id}`} type="file" accept=".docx" hidden
+                                onChange={(e) => { const f = e.target.files?.[0]; if (f) onPickTemplate(r.company_id, f, 'normal'); e.target.value = ''; }}
+                              />
+                              {r.templateName && (
+                                <button type="button" onClick={() => downloadTemplate(r, 'normal')}
+                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline max-w-[180px] truncate" title={r.templateName}>
+                                  <Download className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{r.templateName}</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          {/* Modelo registrado */}
+                          <div>
+                            <p className="text-[10px] text-muted-foreground mb-1">Registrado</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Button
+                                type="button" variant="outline" size="sm"
+                                disabled={!canEditTemplate || r.saving}
+                                onClick={() => document.getElementById(`tpl-reg-${r.company_id}`)?.click()}
+                              >
+                                <Upload className="h-3.5 w-3.5" />
+                                {r.templateRegistradoName ? 'Trocar' : 'Enviar'}
+                              </Button>
+                              <input id={`tpl-reg-${r.company_id}`} type="file" accept=".docx" hidden
+                                onChange={(e) => { const f = e.target.files?.[0]; if (f) onPickTemplate(r.company_id, f, 'registrado'); e.target.value = ''; }}
+                              />
+                              {r.templateRegistradoName && (
+                                <button type="button" onClick={() => downloadTemplate(r, 'registrado')}
+                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline max-w-[180px] truncate" title={r.templateRegistradoName}>
+                                  <Download className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{r.templateRegistradoName}</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="align-top">

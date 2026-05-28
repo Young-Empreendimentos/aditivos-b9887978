@@ -30,12 +30,39 @@ export interface ConfiguracaoEmpresa {
   regrasAditivo?: RegraAditivo[];
   /** Taxa de juros usada nas quitações (% a.m.) */
   taxaJurosQuitacao?: number;
-  /** Template .docx em base64 (o arquivo já deve vir comprimido pelo usuário) */
+  /** Template para contratos NÃO registrados em cartório */
   templateBase64?: string;
   templateName?: string;
   templateSize?: number;
+  /** Template para contratos JÁ registrados em cartório */
+  templateRegistradoBase64?: string;
+  templateRegistradoName?: string;
+  templateRegistradoSize?: number;
   updatedAt?: number;
   updatedBy?: string | null;
+}
+
+/**
+ * Retorna o template correto (base64 + name) conforme status de registro.
+ * Prioridade: template específico do tipo → template padrão (não registrado).
+ */
+export function buscarTemplateAditivo(
+  cfg: ConfiguracaoEmpresa,
+  isRegistrado: boolean,
+): { base64: string; name: string } | null {
+  if (isRegistrado && cfg.templateRegistradoBase64) {
+    return {
+      base64: cfg.templateRegistradoBase64,
+      name: cfg.templateRegistradoName ?? `${cfg.company_name}_registrado.docx`,
+    };
+  }
+  if (cfg.templateBase64) {
+    return {
+      base64: cfg.templateBase64,
+      name: cfg.templateName ?? `${cfg.company_name}.docx`,
+    };
+  }
+  return null;
 }
 
 const COLLECTION = 'configuracoes_empresa_aditivos';
@@ -77,6 +104,9 @@ export async function upsertConfiguracao(
     templateBase64: config.templateBase64,
     templateName: config.templateName,
     templateSize: config.templateSize,
+    templateRegistradoBase64: config.templateRegistradoBase64,
+    templateRegistradoName: config.templateRegistradoName,
+    templateRegistradoSize: config.templateRegistradoSize,
     updatedAt: Date.now(),
     updatedBy:
       config.updatedBy ?? auth.currentUser?.email ?? auth.currentUser?.uid ?? null,
@@ -89,12 +119,13 @@ export async function upsertConfiguracao(
 }
 
 export async function fetchTemplateAsFile(
-  cfg: Pick<ConfiguracaoEmpresa, 'templateBase64' | 'templateName' | 'company_name'>,
+  cfg: ConfiguracaoEmpresa,
+  isRegistrado = false,
 ): Promise<File | null> {
-  const name = cfg.templateName ?? `${cfg.company_name ?? 'modelo'}.docx`;
-  if (!cfg.templateBase64) return null;
-  const bytes = base64ToUint8(cfg.templateBase64);
-  return new File([bytes.buffer as ArrayBuffer], name, { type: DOCX_MIME });
+  const tpl = buscarTemplateAditivo(cfg, isRegistrado);
+  if (!tpl) return null;
+  const bytes = base64ToUint8(tpl.base64);
+  return new File([bytes.buffer as ArrayBuffer], tpl.name, { type: DOCX_MIME });
 }
 
 export async function listConfiguracoes(): Promise<ConfiguracaoEmpresa[]> {
