@@ -138,6 +138,7 @@ export async function listContratosByCliente(clientId: string, companyId?: strin
       "bill_id, bill_document, client_id, client_name, company_id, company_name, business_area_name, cost_center_name, main_unit, issue_date, bill_private_area, raw_data",
     )
     .eq("client_id", clientId)
+    .ilike("bill_document", "CT.%")
     .or("current_balance.gt.0,current_balance_with_addition.gt.0")
     .limit(5000);
   if (companyId) query = query.eq("company_id", companyId);
