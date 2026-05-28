@@ -153,13 +153,14 @@ const Quitacao = () => {
 
       // 3. Config de taxa do empreendimento (Firestore quitacao_configuracoes)
       const nomeEmp =
-        dadosContrato?.contrato?.empreendimento ??
-        selectedContrato.business_area_name ??
+        dadosContrato?.contrato?.empreendimento ||
+        selectedContrato.business_area_name ||
+        selectedContrato.company_name ||
         '';
 
       if (!nomeEmp.trim()) {
         toast.error(
-          `Não foi possível identificar o empreendimento deste contrato (bill_id: ${selectedContrato.bill_id}). Verifique os dados no Sienge.`
+          `Não foi possível identificar o empreendimento deste contrato. Selecione o empreendimento manualmente.`
         );
         setCalculating(false);
         return;

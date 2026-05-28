@@ -106,6 +106,8 @@ function applyApiToForm(api: DadosContrato, prev: DadosContratoForm): DadosContr
     numero_contrato: keep(api.contrato?.numero, prev.numero_contrato),
     data_contrato: keep((api.contrato?.data_contrato ?? api.contrato?.data_emissao ?? '').slice(0, 10), prev.data_contrato),
     valor_total: keep(api.contrato?.valor_total, prev.valor_total),
+    valor_antigo_matricula: '',  // sempre vazio — preenchimento manual pelo usuário
+    matricula_origem: prev.matricula_origem,  // preserva o que o usuário digitou
     comprador: principal ? parteFromApi(principal) : prev.comprador,
     temConjuge: !!conjuge,
     conjuge: conjuge ? parteFromApi(conjuge) : prev.conjuge,
@@ -130,7 +132,7 @@ function applyKnownDataToForm(
     numero_contrato: prev.numero_contrato || numeroContratoFallback || selectedContrato?.bill_document || '',
     data_contrato: prev.data_contrato || (selectedContrato?.issue_date ?? '').slice(0, 10),
     valor_total: prev.valor_total || (saldoAtualBanco > 0 ? String(saldoAtualBanco) : ''),
-    valor_antigo_matricula: prev.valor_antigo_matricula || (saldoAtualBanco > 0 ? String(saldoAtualBanco) : ''),
+    valor_antigo_matricula: '',  // sempre vazio — preenchimento manual pelo usuário
     comprador: {
       ...prev.comprador,
       nome: prev.comprador.nome || selectedCliente?.client_name || selectedContrato?.client_name || '',
@@ -168,8 +170,9 @@ export function StepDadosContrato({
       );
       onFormChange(knownForm);
       const api = await getDadosContrato(billId);
-      if (api) {
-        onFormChange(applyApiToForm(api, knownForm));
+      const valido = api && api.contrato && typeof api.contrato === 'object';
+      if (valido) {
+        onFormChange(applyApiToForm(api!, knownForm));
         toast.success('Dados do contrato carregados');
       } else {
         onFormChange(knownForm);

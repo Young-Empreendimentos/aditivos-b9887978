@@ -153,7 +153,7 @@ const GeradorAditivo = () => {
             onDataRenegociacao={setDataRenegociacao}
             onIsRegistrado={setIsRegistrado}
             onClienteSelect={setSelectedCliente}
-            onContratoSelect={setSelectedContrato}
+            onContratoSelect={(c) => { setSelectedContrato(c); setDadosForm(emptyDadosContratoForm()); }}
             onParcelasLoaded={setParcelas}
             onNext={handleStep1Next}
           />
