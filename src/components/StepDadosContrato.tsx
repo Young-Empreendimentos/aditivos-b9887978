@@ -94,8 +94,6 @@ function applyApiToForm(api: DadosContrato, prev: DadosContratoForm): DadosContr
   const partes = Array.isArray(api.partes) ? api.partes : [];
   const principal = partes.find((p) => p.is_principal) ?? partes[0];
   const conjuge = partes.find((p) => p.is_conjuge);
-  const cidadePrincipal = principal?.endereco?.cidade ?? '';
-  const estadoPrincipal = principal?.endereco?.estado ?? '';
   return {
     ...prev,
     empreendimento: keep(api.contrato?.empreendimento, prev.empreendimento),
@@ -103,8 +101,8 @@ function applyApiToForm(api: DadosContrato, prev: DadosContratoForm): DadosContr
     area: keep(api.unidade?.area, prev.area),
     matricula: keep(api.unidade?.matricula, prev.matricula),
     onus: keep(api.unidade?.onus, prev.onus),
-    cidade_empreendimento: prev.cidade_empreendimento || cidadePrincipal,
-    estado_empreendimento: prev.estado_empreendimento || estadoPrincipal,
+    cidade_empreendimento: prev.cidade_empreendimento,
+    estado_empreendimento: prev.estado_empreendimento,
     numero_contrato: keep(api.contrato?.numero, prev.numero_contrato),
     data_contrato: keep((api.contrato?.data_contrato ?? api.contrato?.data_emissao ?? '').slice(0, 10), prev.data_contrato),
     valor_total: keep(api.contrato?.valor_total, prev.valor_total),
