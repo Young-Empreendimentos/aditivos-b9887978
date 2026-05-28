@@ -295,6 +295,8 @@ export async function getDadosContrato(billId: number | string): Promise<DadosCo
       data_contrato: first.bill_emission_date ?? first.raw_data?.bill?.emissionDate ?? null,
       data_emissao: first.bill_emission_date ?? first.raw_data?.bill?.emissionDate ?? null,
       valor_total: totalAberto || null,
+      cidade_empreendimento: '',
+      estado_empreendimento: '',
     },
     unidade: {
       nome: unitName,
