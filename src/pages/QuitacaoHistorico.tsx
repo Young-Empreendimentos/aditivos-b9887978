@@ -79,8 +79,6 @@ function StatusBadge({ status }: { status: StatusQuitacao }) {
   );
 }
 
-const STATUS_ORDER: StatusQuitacao[] = ['simulado', 'aprovado', 'enviado', 'quitado', 'cancelado'];
-
 // ─── Dialog de alteração de status ───────────────────────────────────────────
 
 function StatusDialog({
