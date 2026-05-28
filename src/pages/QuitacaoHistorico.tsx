@@ -554,6 +554,3 @@ export default function QuitacaoHistorico() {
     </div>
   );
 }
-
-// Exportar constante usada no arquivo de forma local (evita warning de import não usado)
-const STATUS_ORDER: StatusQuitacao[] = ['simulado', 'aprovado', 'enviado', 'quitado', 'cancelado'];
