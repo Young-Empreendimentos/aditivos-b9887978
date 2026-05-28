@@ -46,6 +46,7 @@ import {
   atualizarStatusQuitacao,
   STATUS_LABELS,
   STATUS_CLASSES,
+  STATUS_ORDER,
   type RegistroQuitacao,
   type StatusQuitacao,
 } from '@/lib/quitacaoHistorico';

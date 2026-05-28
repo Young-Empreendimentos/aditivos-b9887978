@@ -30,6 +30,8 @@ export const STATUS_LABELS: Record<StatusQuitacao, string> = {
   cancelado: 'Cancelado',
 };
 
+export const STATUS_ORDER: StatusQuitacao[] = ['simulado', 'aprovado', 'enviado', 'quitado', 'cancelado'];
+
 export const STATUS_CLASSES: Record<StatusQuitacao, string> = {
   simulado: 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300',
   aprovado: 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/40 dark:text-blue-300',
