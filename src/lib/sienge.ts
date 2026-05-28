@@ -239,6 +239,8 @@ export interface DadosContrato {
     data_contrato: string | null;
     data_emissao: string | null;
     valor_total: number | null;
+    cidade_empreendimento: string | null;
+    estado_empreendimento: string | null;
   };
   unidade: {
     nome: string;
