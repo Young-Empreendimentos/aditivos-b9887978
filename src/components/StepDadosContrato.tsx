@@ -57,8 +57,10 @@ const ESTADO_CIVIL_OPTS = [
 function parteFromApi(p: ParteContrato | undefined): ParteForm {
   if (!p) return emptyParte();
   const ec = (p.estado_civil ?? '').toLowerCase();
+  const sexoRaw = String((p as any).sexo ?? '').trim();
   const sexoInferido: 'M' | 'F' | '' =
-    (p as any).sexo === 'F' || (p as any).sexo === 'M' ? (p as any).sexo
+    sexoRaw === 'M' || sexoRaw.toLowerCase().startsWith('m') ? 'M'
+    : sexoRaw === 'F' || sexoRaw.toLowerCase().startsWith('f') ? 'F'
     : ec.endsWith('a') ? 'F'
     : ec ? 'M'
     : '';
