@@ -103,7 +103,7 @@ function applyApiToForm(api: DadosContrato, prev: DadosContratoForm): DadosContr
     cidade_empreendimento: keep(api.contrato?.cidade_empreendimento, prev.cidade_empreendimento),
     estado_empreendimento: keep(api.contrato?.estado_empreendimento, prev.estado_empreendimento),
     numero_contrato: keep(api.contrato?.numero, prev.numero_contrato),
-    data_contrato: keep((api.contrato?.data_contrato ?? api.contrato?.data_emissao ?? '').slice(0, 10), prev.data_contrato),
+    data_contrato: prev.data_contrato,  // não existe no Sienge — preenchimento manual
     valor_total: keep(api.contrato?.valor_total, prev.valor_total),
     valor_antigo_matricula: '',  // sempre vazio — preenchimento manual pelo usuário
     matricula_origem: prev.matricula_origem,  // preserva o que o usuário digitou
@@ -129,7 +129,7 @@ function applyKnownDataToForm(
     num_lote: prev.num_lote || extractLote(selectedContrato?.main_unit),
     area: prev.area || keep(selectedContrato?.bill_private_area),
     numero_contrato: prev.numero_contrato || numeroContratoFallback || selectedContrato?.bill_document || '',
-    data_contrato: prev.data_contrato || (selectedContrato?.issue_date ?? '').slice(0, 10),
+    data_contrato: prev.data_contrato,  // não existe no Sienge — preenchimento manual
     valor_total: prev.valor_total || (saldoAtualBanco > 0 ? String(saldoAtualBanco) : ''),
     valor_antigo_matricula: '',  // sempre vazio — preenchimento manual pelo usuário
     comprador: {
@@ -274,6 +274,16 @@ export function StepDadosContrato({
           </Field>
           <Field label="UF do empreendimento">
             <Input value={form.estado_empreendimento} maxLength={2} onChange={(e) => onFormChange({ ...form, estado_empreendimento: e.target.value.toUpperCase() })} />
+          </Field>
+          <Field label={<span>Data de firmamento do contrato <span className="text-destructive">*</span></span>}>
+            <Input
+              type="date"
+              value={form.data_contrato}
+              onChange={(e) => onFormChange({ ...form, data_contrato: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Data em que o contrato foi assinado — não disponível no Sienge, preencha manualmente.
+            </p>
           </Field>
         </CardContent>
       </Card>
