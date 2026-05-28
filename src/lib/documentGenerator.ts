@@ -100,13 +100,10 @@ export async function generateDocx(
     nullGetter: () => '',
   });
 
-  const valorAntigoAuto = selectedParcelas.reduce((s, p) => s + p.saldoAtual, 0);
   const valorRefinanciado = novasParcelas.reduce((s, p) => s + p.valor, 0);
-  // VALOR_ANTIGO: usa o valor informado pelo usuário (da matrícula no Cartório) quando disponível;
-  // caso contrário, cai na soma dos saldos das parcelas selecionadas.
-  const valorAntigoFinal = extraPlaceholders.VALOR_ANTIGO && extraPlaceholders.VALOR_ANTIGO.trim()
-    ? extraPlaceholders.VALOR_ANTIGO
-    : formatCurrency(valorAntigoAuto);
+  // VALOR_ANTIGO: exclusivamente o valor informado pelo usuário (matrícula no Cartório).
+  // Campo obrigatório — validado no StepDadosContrato antes de chegar aqui.
+  const valorAntigoFinal = extraPlaceholders.VALOR_ANTIGO ?? '';
 
   doc.render({
     ...extraPlaceholders,

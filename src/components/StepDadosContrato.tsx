@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, Loader2, RefreshCcw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, RefreshCcw, AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -253,15 +253,22 @@ export function StepDadosContrato({
               onChange={(e) => onFormChange({ ...form, matricula_origem: e.target.value })}
             />
           </Field>
-          <Field label="Valor antigo (R$)">
+          <Field label={<span>Valor antigo (R$) <span className="text-destructive">*</span></span>}>
             <Input
               value={form.valor_antigo_matricula}
               placeholder="ex: 85000.00"
+              className={!form.valor_antigo_matricula.trim() ? 'border-destructive' : ''}
               onChange={(e) => onFormChange({ ...form, valor_antigo_matricula: e.target.value })}
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              Valor total da dívida conforme consta na matrícula do lote no Cartório de Registro de Imóveis.
-            </p>
+            {!form.valor_antigo_matricula.trim() ? (
+              <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> Campo obrigatório — valor da dívida conforme matrícula no Cartório.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-1">
+                Valor total da dívida conforme consta na matrícula do lote no Cartório de Registro de Imóveis.
+              </p>
+            )}
           </Field>
           <Field label="Cidade do empreendimento">
             <Input value={form.cidade_empreendimento} onChange={(e) => onFormChange({ ...form, cidade_empreendimento: e.target.value })} />
@@ -319,7 +326,15 @@ export function StepDadosContrato({
         <Button variant="outline" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" /> Voltar
         </Button>
-        <Button onClick={onNext}>
+        <Button
+          onClick={() => {
+            if (!form.valor_antigo_matricula.trim()) {
+              toast.error('Preencha o Valor antigo (R$) antes de continuar.');
+              return;
+            }
+            onNext();
+          }}
+        >
           Próximo <ArrowRight className="w-4 h-4" />
         </Button>
       </div>
@@ -332,7 +347,7 @@ function Field({
   children,
   className = '',
 }: {
-  label: string;
+  label: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }) {
