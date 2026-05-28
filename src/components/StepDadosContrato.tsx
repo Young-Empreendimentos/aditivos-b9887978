@@ -100,7 +100,6 @@ function applyApiToForm(api: DadosContrato, prev: DadosContratoForm): DadosContr
     num_lote: keep(api.unidade?.num_lote, prev.num_lote),
     area: keep(api.unidade?.area, prev.area),
     matricula: keep(api.unidade?.matricula, prev.matricula),
-    onus: keep(api.unidade?.onus, prev.onus),
     cidade_empreendimento: keep(api.contrato?.cidade_empreendimento, prev.cidade_empreendimento),
     estado_empreendimento: keep(api.contrato?.estado_empreendimento, prev.estado_empreendimento),
     numero_contrato: keep(api.contrato?.numero, prev.numero_contrato),
@@ -275,9 +274,6 @@ export function StepDadosContrato({
           </Field>
           <Field label="UF do empreendimento">
             <Input value={form.estado_empreendimento} maxLength={2} onChange={(e) => onFormChange({ ...form, estado_empreendimento: e.target.value.toUpperCase() })} />
-          </Field>
-          <Field label="Ônus" className="sm:col-span-2">
-            <Input value={form.onus} onChange={(e) => onFormChange({ ...form, onus: e.target.value })} />
           </Field>
         </CardContent>
       </Card>

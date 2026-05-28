@@ -145,7 +145,6 @@ export function buildPlaceholders(
     AREA: form.area,
     MATRICULA: form.matricula,
     MATRICULA_ORIGEM: form.matricula_origem,
-    ONUS: form.onus,
     CIDADE_EMPREENDIMENTO: form.cidade_empreendimento,
     UF_EMPREENDIMENTO: form.estado_empreendimento,
     CIDADE_DATA: cidadeData,

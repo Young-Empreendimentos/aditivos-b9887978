@@ -248,7 +248,6 @@ export interface DadosContrato {
     num_lote: string;
     matricula: number | null;
     area: number | null;
-    onus: string | null;
   };
   partes: ParteContrato[];
 }
@@ -303,7 +302,6 @@ export async function getDadosContrato(billId: number | string): Promise<DadosCo
       num_lote: unitName.replace(/^\s*lote\s*/i, '').trim() || unitName,
       matricula: null,
       area: first.bill_private_area ?? first.raw_data?.bill?.privateArea ?? null,
-      onus: null,
     },
     partes: [
       {
