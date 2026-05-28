@@ -245,13 +245,6 @@ export function StepDadosContrato({
           <Field label="Matrícula">
             <Input value={form.matricula} onChange={(e) => onFormChange({ ...form, matricula: e.target.value })} />
           </Field>
-          <Field label="Matrícula de origem">
-            <Input
-              value={form.matricula_origem}
-              placeholder="ex: 45.146"
-              onChange={(e) => onFormChange({ ...form, matricula_origem: e.target.value })}
-            />
-          </Field>
           <Field label={<span>Valor antigo (R$) <span className="text-destructive">*</span></span>}>
             <Input
               value={form.valor_antigo_matricula}
