@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FileText, Receipt, LogOut, SlidersHorizontal, ArrowRight, FileSignature, BadgeCheck } from 'lucide-react';
+import { FileText, Receipt, LogOut, SlidersHorizontal, ArrowRight, FileSignature, BadgeCheck, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -110,7 +110,7 @@ const Index = () => {
         </header>
 
         {/* Tools */}
-        <div className="grid gap-5 sm:grid-cols-2 max-w-3xl mx-auto">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
           <Link to="/gerador-aditivo" className="group">
             <Card className="relative h-full overflow-hidden border-border/60 transition-all hover:shadow-xl hover:border-primary/50 hover:-translate-y-0.5">
               <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-primary/40" />
@@ -139,6 +139,22 @@ const Index = () => {
                   <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
                 </CardTitle>
                 <CardDescription>Cálculo de valor presente para quitação antecipada de contrato</CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
+          <Link to="/quitacao/historico" className="group">
+            <Card className="relative h-full overflow-hidden border-border/60 transition-all hover:shadow-xl hover:border-primary/50 hover:-translate-y-0.5">
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-primary/40" />
+              <CardHeader>
+                <div className="h-11 w-11 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  <BookOpen className="h-5 w-5 text-primary group-hover:text-primary-foreground" />
+                </div>
+                <CardTitle className="flex items-center justify-between">
+                  Histórico de Quitações
+                  <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
+                </CardTitle>
+                <CardDescription>Consulte e acompanhe todas as simulações de quitação salvas pela equipe</CardDescription>
               </CardHeader>
             </Card>
           </Link>

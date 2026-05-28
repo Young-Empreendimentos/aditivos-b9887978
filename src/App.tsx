@@ -11,6 +11,7 @@ import GeradorAditivo from "./pages/GeradorAditivo.tsx";
 import Quitacao from "./pages/Quitacao.tsx";
 import Configuracoes from "./pages/Configuracoes.tsx";
 import ConfiguracoesQuitacao from "./pages/ConfiguracoesQuitacao.tsx";
+import QuitacaoHistorico from "./pages/QuitacaoHistorico.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -61,6 +62,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ConfiguracoesQuitacao />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/quitacao/historico"
+              element={
+                <ProtectedRoute>
+                  <QuitacaoHistorico />
                 </ProtectedRoute>
               }
             />

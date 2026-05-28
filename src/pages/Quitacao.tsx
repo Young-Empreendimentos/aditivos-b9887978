@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowLeft, Calculator, CalendarDays, Loader2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Calculator, CalendarDays, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +43,8 @@ import {
   ultimoDiaMesAtual,
   type ResultadoQuitacao,
 } from '@/lib/quitacao';
+import { salvarQuitacao } from '@/lib/quitacaoHistorico';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -59,6 +61,8 @@ function parseInstallmentNumber(value: string | number | null | undefined): numb
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 const Quitacao = () => {
+  const { user } = useAuth();
+
   // Seleção de contrato
   const [empresas, setEmpresas] = useState<EmpresaSienge[]>([]);
   const [selectedEmpresa, setSelectedEmpresa] = useState('__all__');
@@ -80,6 +84,9 @@ const Quitacao = () => {
   const [empConf, setEmpConf] = useState<QuitacaoConfig | null>(null);
   const [loteNome, setLoteNome] = useState<string | null>(null);
   const [loteHabilitado, setLoteHabilitado] = useState<boolean>(true);
+
+  // Salvar no histórico
+  const [saving, setSaving] = useState(false);
 
   // Ref para debounce de busca de cliente
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -236,6 +243,48 @@ const Quitacao = () => {
     }
   }
 
+  // ─── Salvar no histórico ────────────────────────────────────────────────────
+  async function handleSalvar() {
+    if (!resultado || !selectedContrato || !selectedCliente || !empConf) return;
+    setSaving(true);
+    try {
+      const valorSaldoAtual = resultado.parcelas.reduce((s, p) => s + p.valorAtual, 0);
+      await salvarQuitacao({
+        criadoPor: user?.email ?? 'desconhecido',
+        criadoPorNome: user?.displayName ?? user?.email ?? 'desconhecido',
+        billId: String(selectedContrato.bill_id),
+        clienteId: String(selectedCliente.client_id),
+        clienteNome: selectedCliente.client_name,
+        contratoNumero: selectedContrato.bill_document ?? String(selectedContrato.bill_id),
+        empreendimento: empConf.empreendimento,
+        empresa: selectedContrato.company_name ?? '',
+        lote: loteNome,
+        loteHabilitado,
+        dataBase,
+        isRegistrado,
+        taxaPercent: resultado.taxaPercent,
+        regraDescricao: resultado.regraDescricao,
+        percentualPago: resultado.percentualPago,
+        valorSaldoAtual,
+        totalQuitacao: resultado.totalQuitacao,
+        descontoTotal: Math.round((valorSaldoAtual - resultado.totalQuitacao) * 100) / 100,
+        parcelas: resultado.parcelas.map((p) => ({
+          numero: p.numero,
+          dataVencimento: p.dataVencimento.toISOString().split('T')[0],
+          valorAtual: p.valorAtual,
+          valorComDesconto: p.valorComDesconto,
+          dias: p.dias,
+        })),
+        status: 'simulado',
+      });
+      toast.success('Simulação salva no histórico!');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const maxDate = ultimoDiaMesAtual();
   const contratoReady = !!selectedContrato;
 
@@ -243,16 +292,24 @@ const Quitacao = () => {
     <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-3">
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/"><ArrowLeft className="h-4 w-4" /> Voltar</Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Quitação de Contrato</h1>
-            <p className="text-sm text-muted-foreground">
-              Calcule o valor presente das parcelas para quitação antecipada
-            </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/"><ArrowLeft className="h-4 w-4" /> Voltar</Link>
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Quitação de Contrato</h1>
+              <p className="text-sm text-muted-foreground">
+                Calcule o valor presente das parcelas para quitação antecipada
+              </p>
+            </div>
           </div>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/quitacao/historico">
+              <BookOpen className="h-4 w-4" />
+              Histórico
+            </Link>
+          </Button>
         </div>
 
         {/* Card 1: Selecionar contrato */}
@@ -440,7 +497,21 @@ const Quitacao = () => {
           <Card>
             <CardHeader className="pb-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle className="text-base">Resultado</CardTitle>
+                <div className="flex items-center gap-3">
+                  <CardTitle className="text-base">Resultado</CardTitle>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSalvar}
+                    disabled={saving}
+                    className="h-7 text-xs gap-1"
+                  >
+                    {saving
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <Save className="h-3.5 w-3.5" />}
+                    Salvar simulação
+                  </Button>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="outline">
                     {empConf.empreendimento}
