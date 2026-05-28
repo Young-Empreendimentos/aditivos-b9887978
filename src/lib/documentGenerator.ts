@@ -105,8 +105,39 @@ export async function generateDocx(
   // Campo obrigatório — validado no StepDadosContrato antes de chegar aqui.
   const valorAntigoFinal = extraPlaceholders.VALOR_ANTIGO ?? '';
 
+  // Nome do devedor para preencher coluna "Cliente" nas linhas das tabelas
+  const clienteName =
+    extraPlaceholders.NOME_DEVEDOR ??
+    extraPlaceholders.NOME_COMPRADOR ??
+    extraPlaceholders.CLIENTE ??
+    '';
+
+  // Totais das tabelas
+  const totalQuadro1 = selectedParcelas.reduce((s, p) => s + p.saldoAtual, 0);
+  const totalQuadro2 = novasParcelas.reduce((s, p) => s + p.valor, 0);
+
+  // Arrays para os loops nativos do docxtemplater {{#quadro1}}...{{/quadro1}}
+  const quadro1Rows = selectedParcelas.map((p) => ({
+    numero: String(p.numero).padStart(2, '0'),
+    vencimento: formatDate(p.dataVencimento),
+    cliente: clienteName,
+    valor: formatCurrency(p.saldoAtual),
+  }));
+  const quadro2Rows = novasParcelas.map((p) => ({
+    numero: String(p.numero).padStart(2, '0'),
+    vencimento: formatDate(p.dataVencimento),
+    cliente: clienteName,
+    valor: formatCurrency(p.valor),
+  }));
+
   doc.render({
     ...extraPlaceholders,
+    // Arrays para templates com loop nativo {{#quadro1}}...{{/quadro1}}
+    quadro1: quadro1Rows,
+    quadro2: quadro2Rows,
+    TOTAL_QUADRO1: formatCurrency(totalQuadro1),
+    TOTAL_QUADRO2: formatCurrency(totalQuadro2),
+    // Placeholders de tabela para templates legados (substituição OOXML na 2ª passagem)
     QUADRO_1: '___QUADRO1_PLACEHOLDER___',
     QUADRO_2: '___QUADRO2_PLACEHOLDER___',
     QUADRO1: '___QUADRO1_PLACEHOLDER___',

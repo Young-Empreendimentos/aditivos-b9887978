@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, Loader2, RefreshCcw, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, RefreshCcw, AlertCircle, Plus, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { getDadosContrato, type DadosContrato, type ParteContrato } from '@/lib/
 import {
   type DadosContratoForm,
   type ParteForm,
+  type Averbacao,
   emptyParte,
 } from '@/types/dadosContrato';
 import { toast } from 'sonner';
@@ -33,6 +34,8 @@ interface Props {
   onFormChange: (f: DadosContratoForm) => void;
   onBack: () => void;
   onNext: () => void;
+  /** Se true, exibe seção "Dados do Cartório" com campos de registro */
+  isRegistrado?: boolean;
 }
 
 const keep = (next: string | number | null | undefined, prev = '') => {
@@ -45,6 +48,15 @@ const extractLote = (unit: string | null | undefined) => {
   const value = (unit ?? '').trim();
   return value.replace(/^\s*lote\s*/i, '').trim() || value;
 };
+
+const AVERBACAO_DESCRICAO_OPTS = [
+  'ao ADITIVO',
+  'à RETIFICAÇÃO',
+  'ao DISTRATO',
+  'à CESSÃO',
+  'à QUITAÇÃO',
+  'ao CANCELAMENTO',
+];
 
 const ESTADO_CIVIL_OPTS = [
   'Solteiro(a)',
@@ -150,6 +162,7 @@ export function StepDadosContrato({
   onFormChange,
   onBack,
   onNext,
+  isRegistrado = false,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
@@ -213,6 +226,22 @@ export function StepDadosContrato({
     form.comprador.estado_civil === 'Casado(a)' ||
     form.comprador.estado_civil === 'União Estável';
   const mostrarConjuge = form.temConjuge || ecCasado;
+
+  const averbacoes: Averbacao[] = form.averbacoes ?? [];
+
+  const setAverbacao = (index: number, patch: Partial<Averbacao>) => {
+    const next = averbacoes.map((a, i) => (i === index ? { ...a, ...patch } : a));
+    onFormChange({ ...form, averbacoes: next });
+  };
+
+  const addAverbacao = () =>
+    onFormChange({
+      ...form,
+      averbacoes: [...averbacoes, { data: '', descricao: 'ao ADITIVO', codigo: '' }],
+    });
+
+  const removeAverbacao = (index: number) =>
+    onFormChange({ ...form, averbacoes: averbacoes.filter((_, i) => i !== index) });
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -321,6 +350,101 @@ export function StepDadosContrato({
         </Card>
       )}
 
+      {/* Dados do Cartório — visível somente quando o contrato está registrado */}
+      {isRegistrado && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Dados do Cartório</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Field label={<span>Data de registro <span className="text-destructive">*</span></span>}>
+                <Input
+                  type="date"
+                  value={form.data_registro}
+                  onChange={(e) => onFormChange({ ...form, data_registro: e.target.value })}
+                />
+              </Field>
+              <Field label={<span>Registro de Compra e Venda <span className="text-destructive">*</span></span>}>
+                <Input
+                  value={form.reg_compra_venda}
+                  placeholder="ex: R.5-26.848"
+                  onChange={(e) => onFormChange({ ...form, reg_compra_venda: e.target.value })}
+                />
+              </Field>
+              <Field label={<span>Registro de Alienação Fiduciária <span className="text-destructive">*</span></span>}>
+                <Input
+                  value={form.reg_alienacao}
+                  placeholder="ex: R.6-26.848"
+                  onChange={(e) => onFormChange({ ...form, reg_alienacao: e.target.value })}
+                />
+              </Field>
+            </div>
+
+            {/* Averbações */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-muted-foreground">
+                  Averbações ({averbacoes.length})
+                </p>
+                <Button type="button" variant="outline" size="sm" onClick={addAverbacao}>
+                  <Plus className="w-3 h-3" /> Adicionar averbação
+                </Button>
+              </div>
+
+              {averbacoes.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">
+                  Nenhuma averbação adicionada. Clique em "Adicionar averbação" se houver averbações na matrícula.
+                </p>
+              )}
+
+              {averbacoes.map((av, idx) => (
+                <div key={idx} className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto] items-end mb-3 p-3 border rounded-md">
+                  <Field label="Data da averbação">
+                    <Input
+                      type="date"
+                      value={av.data}
+                      onChange={(e) => setAverbacao(idx, { data: e.target.value })}
+                    />
+                  </Field>
+                  <Field label="Descrição">
+                    <Select
+                      value={av.descricao}
+                      onValueChange={(v) => setAverbacao(idx, { descricao: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {AVERBACAO_DESCRICAO_OPTS.map((o) => (
+                          <SelectItem key={o} value={o}>{o}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Código da averbação">
+                    <Input
+                      value={av.codigo}
+                      placeholder="ex: Av.9/26.848"
+                      onChange={(e) => setAverbacao(idx, { codigo: e.target.value })}
+                    />
+                  </Field>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => removeAverbacao(idx)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex justify-between">
         <Button variant="outline" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" /> Voltar
@@ -329,6 +453,10 @@ export function StepDadosContrato({
           onClick={() => {
             if (!form.valor_antigo_matricula.trim()) {
               toast.error('Preencha o Valor antigo (R$) antes de continuar.');
+              return;
+            }
+            if (isRegistrado && (!form.data_registro || !form.reg_compra_venda || !form.reg_alienacao)) {
+              toast.error('Preencha os campos obrigatórios de Dados do Cartório antes de continuar.');
               return;
             }
             onNext();

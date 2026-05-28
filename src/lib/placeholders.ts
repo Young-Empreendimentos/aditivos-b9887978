@@ -1,9 +1,75 @@
 import { format, parse } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import type { DadosContratoForm, ParteForm } from '@/types/dadosContrato';
+import type { DadosContratoForm, Averbacao, ParteForm } from '@/types/dadosContrato';
 
 function fmtCurrency(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+/**
+ * Converte um valor numérico BRL para extenso em português.
+ * Ex: 77249.60 → "setenta e sete mil, duzentos e quarenta e nove reais com sessenta centavos"
+ */
+export function valorPorExtenso(n: number): string {
+  if (!isFinite(n) || n < 0) return '';
+  if (n === 0) return 'zero reais';
+
+  const totalCentavos = Math.round(n * 100);
+  const reais = Math.floor(totalCentavos / 100);
+  const centavos = totalCentavos % 100;
+
+  const UNIDADES = [
+    '', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove',
+    'dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove',
+  ];
+  const DEZENAS = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+  const CENTENAS = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos',
+    'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+
+  function centena(v: number): string {
+    if (v === 0) return '';
+    if (v === 100) return 'cem';
+    const c = Math.floor(v / 100);
+    const r = v % 100;
+    const parts: string[] = [];
+    if (c) parts.push(CENTENAS[c]);
+    if (r) {
+      if (r < 20) parts.push(UNIDADES[r]);
+      else {
+        const d = Math.floor(r / 10);
+        const u = r % 10;
+        parts.push(u ? `${DEZENAS[d]} e ${UNIDADES[u]}` : DEZENAS[d]);
+      }
+    }
+    return parts.join(' e ');
+  }
+
+  function inteiro(v: number): string {
+    if (v === 0) return 'zero';
+    const mil = Math.floor(v / 1000);
+    const resto = v % 1000;
+    const parts: string[] = [];
+    if (mil) parts.push(mil === 1 ? 'mil' : `${centena(mil)} mil`);
+    if (resto) parts.push(centena(resto));
+    if (mil && resto) return resto >= 100 ? parts.join(', ') : parts.join(' e ');
+    return parts[0] ?? '';
+  }
+
+  const parts: string[] = [];
+  if (reais > 0) parts.push(`${inteiro(reais)} ${reais === 1 ? 'real' : 'reais'}`);
+  if (centavos > 0) parts.push(`${inteiro(centavos)} ${centavos === 1 ? 'centavo' : 'centavos'}`);
+  return parts.length ? parts.join(' com ') : 'zero reais';
+}
+
+function buildAverbacoes(list: Averbacao[]): string {
+  if (!list || list.length === 0) return '';
+  const items = list.map(
+    (a) => `averbado no dia ${fmtDateShort(a.data)} ${a.descricao}, conforme averbação ${a.codigo}`,
+  );
+  const joined = items.length === 1
+    ? items[0]
+    : `${items.slice(0, -1).join(', ')} e ${items[items.length - 1]}`;
+  return `, ${joined}`;
 }
 
 function fmtDateBR(iso: string): string {
@@ -208,5 +274,16 @@ export function buildPlaceholders(
     NOME_DEVEDOR_2: mostrarConjuge ? j.nome : '',
     // Valor da dívida conforme matrícula (preenchimento manual pelo usuário)
     VALOR_ANTIGO: fmtValor(form.valor_antigo_matricula),
+    VALOR_ANTIGO_EXTENSO: valorPorExtenso(
+      Number(String(form.valor_antigo_matricula).replace(',', '.')) || 0,
+    ),
+    VALOR_TOTAL_EXTENSO: valorPorExtenso(
+      Number(String(form.valor_total).replace(',', '.')) || 0,
+    ),
+    // Dados do Cartório (somente quando isRegistrado=true; string vazia quando não aplicável)
+    DATA_REGISTRO: fmtDateShort(form.data_registro ?? ''),
+    REG_COMPRA_VENDA: form.reg_compra_venda ?? '',
+    REG_ALIENACAO: form.reg_alienacao ?? '',
+    AVERBACOES: buildAverbacoes(form.averbacoes ?? []),
   };
 }

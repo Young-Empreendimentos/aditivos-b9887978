@@ -24,6 +24,15 @@ export interface ParteForm {
   regime_bens: string;    // ex: "comunhão parcial de bens"
 }
 
+export interface Averbacao {
+  /** ISO date yyyy-MM-dd */
+  data: string;
+  /** e.g. "ao ADITIVO", "à RETIFICAÇÃO", "ao DISTRATO" */
+  descricao: string;
+  /** e.g. "Av.9/26.848" */
+  codigo: string;
+}
+
 export interface DadosContratoForm {
   // Imóvel
   empreendimento: string;
@@ -38,6 +47,11 @@ export interface DadosContratoForm {
   numero_contrato: string;
   data_contrato: string; // ISO yyyy-mm-dd
   valor_total: string;
+  // Dados do Cartório (somente quando isRegistrado=true)
+  data_registro: string;       // ISO yyyy-MM-dd — data do registro no cartório
+  reg_compra_venda: string;    // e.g. "R.5-26.848"
+  reg_alienacao: string;       // e.g. "R.6-26.848"
+  averbacoes: Averbacao[];
   // Partes
   comprador: ParteForm;
   temConjuge: boolean;
@@ -77,6 +91,10 @@ export function emptyDadosContratoForm(): DadosContratoForm {
     numero_contrato: "",
     data_contrato: "",
     valor_total: "",
+    data_registro: "",
+    reg_compra_venda: "",
+    reg_alienacao: "",
+    averbacoes: [],
     comprador: emptyParte(),
     temConjuge: false,
     conjuge: emptyParte(),

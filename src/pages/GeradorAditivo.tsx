@@ -199,6 +199,7 @@ const GeradorAditivo = () => {
             parcelas={parcelas}
             form={dadosForm}
             onFormChange={setDadosForm}
+            isRegistrado={isRegistrado}
             onBack={() => setCurrentStep(3)}
             onNext={() => setCurrentStep(5)}
           />
