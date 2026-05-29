@@ -71,6 +71,24 @@ const GeradorAditivo = () => {
     [parcelas, selectedIds]
   );
 
+  // Limpa TODOS os estados dos Steps 2-4 para evitar contaminar um novo cliente
+  // com dados de um anterior. Chamado ao trocar empresa, cliente ou contrato.
+  const resetDownstream = useCallback(() => {
+    // Step 2
+    setSelectedIds(new Set());
+    // Step 3
+    setNumParcelas(0);
+    setStartDate(null);
+    setReforcos([]);
+    setNovasParcelas([]);
+    setPvTotal(0);
+    setPmtValue(0);
+    setTotalJuros(0);
+    setValorTotalRenegociado(0);
+    // Step 4
+    setDadosForm(emptyDadosContratoForm());
+  }, []);
+
   const handleStep1Next = useCallback(() => {
     setSelectedIds(new Set());
     setCurrentStep(2);
@@ -153,8 +171,9 @@ const GeradorAditivo = () => {
             onDataRenegociacao={setDataRenegociacao}
             onIsRegistrado={setIsRegistrado}
             onClienteSelect={setSelectedCliente}
-            onContratoSelect={(c) => { setSelectedContrato(c); setDadosForm(emptyDadosContratoForm()); }}
+            onContratoSelect={(c) => { setSelectedContrato(c); resetDownstream(); }}
             onParcelasLoaded={setParcelas}
+            onResetDownstream={resetDownstream}
             onNext={handleStep1Next}
           />
         )}

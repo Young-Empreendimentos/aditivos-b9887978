@@ -62,6 +62,7 @@ interface Step1Props {
   onClienteSelect: (c: ClienteSienge | null) => void;
   onContratoSelect: (c: ContratoSienge | null) => void;
   onParcelasLoaded: (p: Parcela[]) => void;
+  onResetDownstream: () => void;
   onNext: () => void;
 }
 
@@ -119,6 +120,7 @@ export function Step1({
   onClienteSelect,
   onContratoSelect,
   onParcelasLoaded,
+  onResetDownstream,
   onNext,
 }: Step1Props) {
   const [empresas, setEmpresas] = useState<EmpresaSienge[]>([]);
@@ -186,6 +188,7 @@ export function Step1({
     onClienteSelect(null);
     onContratoSelect(null);
     onParcelasLoaded([]);
+    onResetDownstream();
     setContratos([]);
     setClientes([]);
     setSearchTerm('');
@@ -221,6 +224,7 @@ export function Step1({
     onClienteSelect(c);
     onContratoSelect(null);
     onParcelasLoaded([]);
+    onResetDownstream();
     setContratos([]);
     setSearchTerm(c.client_name);
     setLoadingContratos(true);
@@ -256,6 +260,7 @@ export function Step1({
     onClienteSelect(null);
     onContratoSelect(null);
     onParcelasLoaded([]);
+    onResetDownstream();
     setContratos([]);
     setClientes([]);
     setSearchTerm('');

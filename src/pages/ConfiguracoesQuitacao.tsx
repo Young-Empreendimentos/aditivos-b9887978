@@ -91,11 +91,13 @@ function SortableRegraRow({
   index,
   onUpdate,
   onRemove,
+  readOnly = false,
 }: {
   regra: RegraRow;
   index: number;
   onUpdate: (key: string, patch: Partial<RegraRow>) => void;
   onRemove: (key: string) => void;
+  readOnly?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: regra._key });
@@ -111,6 +113,7 @@ function SortableRegraRow({
   return (
     <TableRow ref={setNodeRef} style={style}>
       {/* Handle de arrasto */}
+      {!readOnly && (
       <TableCell className="w-8 px-1 text-center">
         <button
           {...attributes}
@@ -123,6 +126,7 @@ function SortableRegraRow({
           <GripVertical className="h-4 w-4" />
         </button>
       </TableCell>
+      )}
       {/* Nº ordem */}
       <TableCell className="w-8 text-center text-xs font-mono text-muted-foreground select-none">
         {index + 1}
@@ -130,6 +134,7 @@ function SortableRegraRow({
       <TableCell>
         <Select
           value={regra.is_registrado === null ? 'null' : String(regra.is_registrado)}
+          disabled={readOnly}
           onValueChange={(v) =>
             onUpdate(regra._key, {
               is_registrado: v === 'null' ? null : v === 'true',
@@ -152,6 +157,7 @@ function SortableRegraRow({
         <Input
           type="number" min={0} max={100} step={1} placeholder="0"
           value={regra.pago_min ?? ''}
+          disabled={readOnly}
           onChange={(e) =>
             onUpdate(regra._key, { pago_min: e.target.value === '' ? null : Number(e.target.value) })
           }
@@ -162,6 +168,7 @@ function SortableRegraRow({
         <Input
           type="number" min={0} max={100} step={1} placeholder="100"
           value={regra.pago_max ?? ''}
+          disabled={readOnly}
           onChange={(e) =>
             onUpdate(regra._key, { pago_max: e.target.value === '' ? null : Number(e.target.value) })
           }
@@ -173,6 +180,7 @@ function SortableRegraRow({
           <Input
             type="date"
             value={regra.data_contrato_min ?? ''}
+            disabled={readOnly}
             onChange={(e) =>
               onUpdate(regra._key, { data_contrato_min: e.target.value || null })
             }
@@ -183,6 +191,7 @@ function SortableRegraRow({
           <Input
             type="date"
             value={regra.data_contrato_max ?? ''}
+            disabled={readOnly}
             onChange={(e) =>
               onUpdate(regra._key, { data_contrato_max: e.target.value || null })
             }
@@ -195,6 +204,7 @@ function SortableRegraRow({
         <Input
           type="number" min={0} max={100} step={0.01}
           value={regra.taxa}
+          disabled={readOnly}
           onChange={(e) => onUpdate(regra._key, { taxa: Number(e.target.value) })}
           className="h-8 w-24 text-right tabular-nums"
         />
@@ -203,10 +213,12 @@ function SortableRegraRow({
         <Input
           placeholder="Ex: Período sem desconto"
           value={regra.descricao ?? ''}
+          disabled={readOnly}
           onChange={(e) => onUpdate(regra._key, { descricao: e.target.value })}
           className="h-8 text-xs"
         />
       </TableCell>
+      {!readOnly && (
       <TableCell>
         <Button
           size="icon" variant="ghost"
@@ -217,6 +229,7 @@ function SortableRegraRow({
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </TableCell>
+      )}
     </TableRow>
   );
 }
@@ -227,12 +240,14 @@ function RegraDialog({
   open,
   onClose,
   onSaved,
+  readOnly = false,
 }: {
   nomeEmp: string;
   regrasIniciais: RegraQuitacao[];
   open: boolean;
   onClose: () => void;
   onSaved: (regras: RegraQuitacao[]) => void;
+  readOnly?: boolean;
 }) {
   const [regras, setRegras] = useState<RegraRow[]>([]);
   const [saving, setSaving] = useState(false);
@@ -322,14 +337,14 @@ function RegraDialog({
         <p className="text-xs text-muted-foreground -mt-2 mb-3">
           O sistema usa a <strong>primeira regra que bater</strong> nos critérios (em ordem).
           Se nenhuma bater, usa a taxa padrão.
-          <span className="ml-1 text-[11px]">— Arraste <GripVertical className="inline h-3 w-3 align-middle" /> para reordenar.</span>
+          {!readOnly && <span className="ml-1 text-[11px]">— Arraste <GripVertical className="inline h-3 w-3 align-middle" /> para reordenar.</span>}
         </p>
 
         <div className="max-h-[50vh] overflow-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-8" />
+                {!readOnly && <TableHead className="w-8" />}
                 <TableHead className="w-8 text-center text-xs">#</TableHead>
                 <TableHead className="w-28">Registrado?</TableHead>
                 <TableHead className="w-24">% Pago min</TableHead>
@@ -337,14 +352,14 @@ function RegraDialog({
                 <TableHead>Período contrato (de → até)</TableHead>
                 <TableHead className="w-28">Taxa % a.m.</TableHead>
                 <TableHead>Descrição</TableHead>
-                <TableHead className="w-10" />
+                {!readOnly && <TableHead className="w-10" />}
               </TableRow>
             </TableHeader>
             <TableBody>
               {regras.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-6">
-                    Nenhuma regra específica. Clique em "+ Adicionar" para criar.
+                  <TableCell colSpan={readOnly ? 7 : 9} className="text-center text-sm text-muted-foreground py-6">
+                    {readOnly ? 'Nenhuma regra específica configurada.' : 'Nenhuma regra específica. Clique em "+ Adicionar" para criar.'}
                   </TableCell>
                 </TableRow>
               )}
@@ -364,6 +379,7 @@ function RegraDialog({
                       index={idx}
                       onUpdate={updateRegra}
                       onRemove={removeRegra}
+                      readOnly={readOnly}
                     />
                   ))}
                 </SortableContext>
@@ -372,16 +388,20 @@ function RegraDialog({
           </Table>
         </div>
 
-        <Button variant="outline" size="sm" onClick={addRegra} className="w-fit">
-          <Plus className="h-3.5 w-3.5" /> Adicionar regra
-        </Button>
+        {!readOnly && (
+          <Button variant="outline" size="sm" onClick={addRegra} className="w-fit">
+            <Plus className="h-3.5 w-3.5" /> Adicionar regra
+          </Button>
+        )}
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>Fechar</Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Salvar regras
-          </Button>
+          {!readOnly && (
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Salvar regras
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -396,12 +416,14 @@ function LotesDialog({
   open,
   onClose,
   onSaved,
+  readOnly = false,
 }: {
   nomeEmp: string;
   lotesIniciais: string[] | null;
   open: boolean;
   onClose: () => void;
   onSaved: (lotes: string[] | null) => void;
+  readOnly?: boolean;
 }) {
   const [todos, setTodos] = useState(true);
   const [textarea, setTextarea] = useState('');
@@ -461,53 +483,75 @@ function LotesDialog({
         </p>
 
         <div className="space-y-4">
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant={todos ? 'default' : 'outline'}
-              onClick={() => setTodos(true)}
-            >
-              Todos os lotes
-            </Button>
-            <Button
-              size="sm"
-              variant={!todos ? 'default' : 'outline'}
-              onClick={() => setTodos(false)}
-            >
-              Lotes específicos
-            </Button>
-          </div>
-
-          {!todos && (
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">
-                Um lote por linha (exatamente como aparece no sistema, ex: "Lote 113")
-              </Label>
-              <Textarea
-                value={textarea}
-                onChange={(e) => setTextarea(e.target.value)}
-                placeholder={'Lote 01\nLote 02\nLote 05'}
-                className="font-mono text-xs min-h-[180px]"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                {textarea.split('\n').filter((l) => l.trim()).length} lote(s) cadastrado(s)
+          {readOnly ? (
+            todos ? (
+              <p className="text-sm text-muted-foreground rounded-md border border-dashed p-3">
+                Todos os lotes deste empreendimento receberão desconto de quitação.
               </p>
-            </div>
-          )}
+            ) : (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Lotes com desconto habilitado:</Label>
+                <div className="font-mono text-xs rounded-md border p-3 min-h-[100px] bg-muted/30 whitespace-pre-line">
+                  {textarea || '(nenhum)'}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {textarea.split('\n').filter((l: string) => l.trim()).length} lote(s)
+                </p>
+              </div>
+            )
+          ) : (
+            <>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant={todos ? 'default' : 'outline'}
+                  onClick={() => setTodos(true)}
+                >
+                  Todos os lotes
+                </Button>
+                <Button
+                  size="sm"
+                  variant={!todos ? 'default' : 'outline'}
+                  onClick={() => setTodos(false)}
+                >
+                  Lotes específicos
+                </Button>
+              </div>
 
-          {todos && (
-            <p className="text-sm text-muted-foreground rounded-md border border-dashed p-3">
-              Todos os lotes deste empreendimento receberão desconto de quitação.
-            </p>
+              {!todos && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">
+                    Um lote por linha (exatamente como aparece no sistema, ex: "Lote 113")
+                  </Label>
+                  <Textarea
+                    value={textarea}
+                    onChange={(e) => setTextarea(e.target.value)}
+                    placeholder={'Lote 01\nLote 02\nLote 05'}
+                    className="font-mono text-xs min-h-[180px]"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    {textarea.split('\n').filter((l) => l.trim()).length} lote(s) cadastrado(s)
+                  </p>
+                </div>
+              )}
+
+              {todos && (
+                <p className="text-sm text-muted-foreground rounded-md border border-dashed p-3">
+                  Todos os lotes deste empreendimento receberão desconto de quitação.
+                </p>
+              )}
+            </>
           )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>Fechar</Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Salvar
-          </Button>
+          {!readOnly && (
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Salvar
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -518,8 +562,9 @@ function LotesDialog({
 
 export default function ConfiguracoesQuitacao() {
   const { user } = useAuth();
-  const { isAdmin, role } = usePermission();
+  const { isAdmin, isCoordinator, role } = usePermission();
   const canEdit = isAdmin;
+  const canView = isCoordinator; // coordinator + admin podem abrir dialogs (admin edita, coordinator só visualiza)
 
   const [rows, setRows] = useState<EmpRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -668,20 +713,20 @@ export default function ConfiguracoesQuitacao() {
                     <TableCell className="text-center">
                       <Button
                         size="sm" variant="ghost"
-                        disabled={!canEdit}
+                        disabled={!canView}
                         onClick={() => setDialogNome(r.nome)}
                         className="gap-1"
                       >
                         <Settings2 className="h-3.5 w-3.5" />
                         {r.regras.length > 0
                           ? `${r.regras.length} regra${r.regras.length > 1 ? 's' : ''}`
-                          : 'Configurar'}
+                          : canEdit ? 'Configurar' : 'Visualizar'}
                       </Button>
                     </TableCell>
                     <TableCell className="text-center">
                       <Button
                         size="sm" variant="ghost"
-                        disabled={!canEdit}
+                        disabled={!canView}
                         onClick={() => setLotesDialogNome(r.nome)}
                         className="gap-1"
                       >
@@ -721,6 +766,7 @@ export default function ConfiguracoesQuitacao() {
           nomeEmp={dialogRow.nome}
           regrasIniciais={dialogRow.regras}
           open={!!dialogNome}
+          readOnly={!canEdit}
           onClose={() => setDialogNome(null)}
           onSaved={(regras) => {
             setRows((prev) =>
@@ -738,6 +784,7 @@ export default function ConfiguracoesQuitacao() {
             nomeEmp={lotesRow.nome}
             lotesIniciais={lotesRow.lotes_habilitados}
             open={!!lotesDialogNome}
+            readOnly={!canEdit}
             onClose={() => setLotesDialogNome(null)}
             onSaved={(lotes) => {
               setRows((prev) =>

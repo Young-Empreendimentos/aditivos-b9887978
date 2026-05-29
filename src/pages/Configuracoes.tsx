@@ -76,6 +76,7 @@ function RegraAditivoDialog({
   open,
   onClose,
   onSaved,
+  readOnly = false,
 }: {
   nomeEmpresa: string;
   companyId: string;
@@ -83,6 +84,7 @@ function RegraAditivoDialog({
   open: boolean;
   onClose: () => void;
   onSaved: (regras: RegraAditivo[]) => void;
+  readOnly?: boolean;
 }) {
   const [regras, setRegras] = useState<RegraRow[]>([]);
   const [saving, setSaving] = useState(false);
@@ -156,52 +158,65 @@ function RegraAditivoDialog({
                 <TableHead className="w-32">Registrado?</TableHead>
                 <TableHead className="w-28">Taxa % a.m.</TableHead>
                 <TableHead>Descrição</TableHead>
-                <TableHead className="w-10" />
+                {!readOnly && <TableHead className="w-10" />}
               </TableRow>
             </TableHeader>
             <TableBody>
               {regras.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">
-                    Nenhuma regra. Clique em "+ Adicionar" para criar.
+                  <TableCell colSpan={readOnly ? 3 : 4} className="text-center text-sm text-muted-foreground py-6">
+                    {readOnly ? 'Nenhuma regra configurada.' : 'Nenhuma regra. Clique em "+ Adicionar" para criar.'}
                   </TableCell>
                 </TableRow>
               )}
               {regras.map((r) => (
                 <TableRow key={r._key}>
                   <TableCell>
-                    <Select
-                      value={r.is_registrado === null ? 'null' : String(r.is_registrado)}
-                      onValueChange={(v) =>
-                        updateRegra(r._key, { is_registrado: v === 'null' ? null : v === 'true' })
-                      }
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue>{registradoLabel(r.is_registrado)}</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="null">Qualquer</SelectItem>
-                        <SelectItem value="true">Sim</SelectItem>
-                        <SelectItem value="false">Não</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {readOnly ? (
+                      <span className="text-xs">{registradoLabel(r.is_registrado)}</span>
+                    ) : (
+                      <Select
+                        value={r.is_registrado === null ? 'null' : String(r.is_registrado)}
+                        onValueChange={(v) =>
+                          updateRegra(r._key, { is_registrado: v === 'null' ? null : v === 'true' })
+                        }
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue>{registradoLabel(r.is_registrado)}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="null">Qualquer</SelectItem>
+                          <SelectItem value="true">Sim</SelectItem>
+                          <SelectItem value="false">Não</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                   </TableCell>
                   <TableCell>
-                    <Input
-                      type="number" min={0} max={100} step={0.01}
-                      value={r.taxa}
-                      onChange={(e) => updateRegra(r._key, { taxa: Number(e.target.value) })}
-                      className="h-8 w-24 text-right tabular-nums"
-                    />
+                    {readOnly ? (
+                      <span className="text-xs tabular-nums">{r.taxa}%</span>
+                    ) : (
+                      <Input
+                        type="number" min={0} max={100} step={0.01}
+                        value={r.taxa}
+                        onChange={(e) => updateRegra(r._key, { taxa: Number(e.target.value) })}
+                        className="h-8 w-24 text-right tabular-nums"
+                      />
+                    )}
                   </TableCell>
                   <TableCell>
-                    <Input
-                      placeholder="ex: Contrato registrado"
-                      value={r.descricao ?? ''}
-                      onChange={(e) => updateRegra(r._key, { descricao: e.target.value })}
-                      className="h-8 text-xs"
-                    />
+                    {readOnly ? (
+                      <span className="text-xs text-muted-foreground">{r.descricao || '—'}</span>
+                    ) : (
+                      <Input
+                        placeholder="ex: Contrato registrado"
+                        value={r.descricao ?? ''}
+                        onChange={(e) => updateRegra(r._key, { descricao: e.target.value })}
+                        className="h-8 text-xs"
+                      />
+                    )}
                   </TableCell>
+                  {!readOnly && (
                   <TableCell>
                     <Button
                       size="icon" variant="ghost"
@@ -211,20 +226,25 @@ function RegraAditivoDialog({
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
-        <Button variant="outline" size="sm" onClick={addRegra} className="w-fit">
-          <Plus className="h-3.5 w-3.5" /> Adicionar regra
-        </Button>
+        {!readOnly && (
+          <Button variant="outline" size="sm" onClick={addRegra} className="w-fit">
+            <Plus className="h-3.5 w-3.5" /> Adicionar regra
+          </Button>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>Fechar</Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Salvar regras
-          </Button>
+          {!readOnly && (
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Salvar regras
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -516,14 +536,14 @@ export default function Configuracoes() {
                       <TableCell className="text-center align-top">
                         <Button
                           size="sm" variant="ghost"
-                          disabled={!canEditTaxa}
+                          disabled={readOnly}
                           onClick={() => setRegraDialogId(r.company_id)}
                           className="gap-1"
                         >
                           <Settings2 className="h-3.5 w-3.5" />
                           {r.regrasAditivo.length > 0
                             ? `${r.regrasAditivo.length} regra${r.regrasAditivo.length > 1 ? 's' : ''}`
-                            : 'Configurar'}
+                            : canEditTaxa ? 'Configurar' : 'Visualizar'}
                         </Button>
                       </TableCell>
                       <TableCell className="align-top">
@@ -624,6 +644,7 @@ export default function Configuracoes() {
             companyId={row.company_id}
             regrasIniciais={row.regrasAditivo}
             open={!!regraDialogId}
+            readOnly={!canEditTaxa}
             onClose={() => setRegraDialogId(null)}
             onSaved={(regras) => {
               setRows((prev) =>
