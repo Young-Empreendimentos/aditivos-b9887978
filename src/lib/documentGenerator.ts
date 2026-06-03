@@ -4,6 +4,7 @@ import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { Parcela, NovaParcela } from '@/types/contract';
+import { valorPorExtenso } from '@/lib/placeholders';
 
 function formatCurrency(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -137,6 +138,10 @@ export async function generateDocx(
     quadro2: quadro2Rows,
     TOTAL_QUADRO1: formatCurrency(totalQuadro1),
     TOTAL_QUADRO2: formatCurrency(totalQuadro2),
+    // VALOR_TOTAL = soma do quadro 2 (novo plano), NÃO o valor do contrato original.
+    // Overrides o valor que vem de extraPlaceholders (form.valor_total do Sienge).
+    VALOR_TOTAL: formatCurrency(totalQuadro2),
+    VALOR_TOTAL_EXTENSO: valorPorExtenso(totalQuadro2),
     // Placeholders de tabela para templates legados (substituição OOXML na 2ª passagem)
     QUADRO_1: '___QUADRO1_PLACEHOLDER___',
     QUADRO_2: '___QUADRO2_PLACEHOLDER___',
