@@ -95,10 +95,12 @@ function mapRowsToParcelas(rows: SiengeParcelaRow[]): Parcela[] {
     .filter((p): p is Parcela => p !== null);
 
   // Usar numeração original do Sienge (installment_number).
+  // Formato Sienge: "14/172" (parcela 14 de 172) — pegar só o número antes da barra.
   // Fallback: sequencial (1, 2, 3...) caso o Sienge não forneça.
   parcelas.forEach((p, i) => {
     p.isEntrada = false;
-    const numSienge = Number(p.parcelaOriginal);
+    const raw = String(p.parcelaOriginal ?? '').split('/')[0];
+    const numSienge = Number(raw);
     p.numero = numSienge > 0 ? numSienge : i + 1;
   });
   // Ordenar por número da parcela (não por vencimento)
