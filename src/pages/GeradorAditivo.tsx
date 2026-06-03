@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { LogOut, Settings, Home } from 'lucide-react';
 import { Stepper } from '@/components/Stepper';
@@ -15,6 +15,7 @@ import { usePermission, ROLE_LABELS } from '@/hooks/usePermission';
 import type { Parcela, NovaParcela, Reforco } from '@/types/contract';
 import type { ClienteSienge, ContratoSienge } from '@/lib/sienge';
 import { emptyDadosContratoForm, type DadosContratoForm } from '@/types/dadosContrato';
+import { getConfigGlobal } from '@/lib/configuracoes';
 import { toast } from 'sonner';
 
 const STEPS = ['Dados', 'Seleção', 'Simulação', 'Contrato', 'Revisão'];
@@ -40,10 +41,18 @@ const GeradorAditivo = () => {
   };
 
 
+  // Carrega o custo fixo global ao montar
+  const [custoFixoGlobal, setCustoFixoGlobal] = useState(0);
+  useEffect(() => {
+    getConfigGlobal().then((cfg) => {
+      if (cfg?.custoFixo) setCustoFixoGlobal(cfg.custoFixo);
+    }).catch(() => {});
+  }, []);
+
   // Step 1 state
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [taxaJuros, setTaxaJuros] = useState(0);
-  const [custosAdicionais, setCustosAdicionais] = useState(0);
+  const custosAdicionais = custoFixoGlobal;
   const [dataRenegociacao, setDataRenegociacao] = useState<Date | null>(null);
   const [isRegistrado, setIsRegistrado] = useState(false);
   const [parcelas, setParcelas] = useState<Parcela[]>([]);
@@ -167,7 +176,6 @@ const GeradorAditivo = () => {
             parcelas={parcelas}
             onTemplateFile={setTemplateFile}
             onTaxaJuros={setTaxaJuros}
-            onCustosAdicionais={setCustosAdicionais}
             onDataRenegociacao={setDataRenegociacao}
             onIsRegistrado={setIsRegistrado}
             onClienteSelect={setSelectedCliente}

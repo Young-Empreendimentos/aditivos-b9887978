@@ -35,6 +35,8 @@ import { listEmpresas, type EmpresaSienge } from '@/lib/sienge';
 import {
   getConfiguracao,
   upsertConfiguracao,
+  getConfigGlobal,
+  saveConfigGlobal,
   type ConfiguracaoEmpresa,
   type RegraAditivo,
 } from '@/lib/configuracoes';
@@ -272,16 +274,31 @@ export default function Configuracoes() {
   const canEditTemplate = isCoordinator;
   const readOnly = !canEditTaxa && !canEditTemplate;
 
+  const canEditCustoFixo = isCoordinator; // coordenador e admin
+
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [regraDialogId, setRegraDialogId] = useState<string | null>(null);
+
+  // Custo fixo global
+  const [custoFixo, setCustoFixo] = useState('');
+  const [custoFixoOriginal, setCustoFixoOriginal] = useState('');
+  const [custoFixoDirty, setCustoFixoDirty] = useState(false);
+  const [savingCustoFixo, setSavingCustoFixo] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
-        const empresas = await listEmpresas();
+        const [empresas, globalCfg] = await Promise.all([
+          listEmpresas(),
+          getConfigGlobal().catch(() => null),
+        ]);
+        if (cancelled) return;
+        const cfVal = String(globalCfg?.custoFixo ?? '');
+        setCustoFixo(cfVal);
+        setCustoFixoOriginal(cfVal);
         const configs = await Promise.all(
           empresas.map((e) => getConfiguracao(e.company_id).catch(() => null))
         );
@@ -477,6 +494,52 @@ export default function Configuracoes() {
             Você tem permissão somente de leitura nesta página.
           </div>
         )}
+
+        {/* Custo fixo global — editável pelo coordenador e admin */}
+        <Card className="mb-4">
+          <CardContent className="py-4 flex flex-wrap items-end gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="custoFixo" className="text-sm font-medium">Custo Fixo (R$)</Label>
+              <p className="text-[11px] text-muted-foreground -mt-0.5">Valor aplicado automaticamente em todos os empreendimentos.</p>
+              <div className="relative">
+                <Input
+                  id="custoFixo"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={custoFixo}
+                  disabled={!canEditCustoFixo || savingCustoFixo}
+                  onChange={(e) => { setCustoFixo(e.target.value); setCustoFixoDirty(e.target.value !== custoFixoOriginal); }}
+                  className="pl-10 w-40 tabular-nums"
+                />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              disabled={!custoFixoDirty || savingCustoFixo || !canEditCustoFixo}
+              onClick={async () => {
+                const val = Number(custoFixo) || 0;
+                if (val < 0) { toast.error('Custo fixo inválido'); return; }
+                setSavingCustoFixo(true);
+                try {
+                  await saveConfigGlobal({ custoFixo: val });
+                  setCustoFixoOriginal(String(val));
+                  setCustoFixoDirty(false);
+                  toast.success('Custo fixo salvo!');
+                } catch (err: unknown) {
+                  toast.error(err instanceof Error ? err.message : 'Erro ao salvar custo fixo');
+                } finally {
+                  setSavingCustoFixo(false);
+                }
+              }}
+            >
+              {savingCustoFixo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              Salvar
+            </Button>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

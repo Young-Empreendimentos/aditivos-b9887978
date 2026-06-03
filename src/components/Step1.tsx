@@ -56,7 +56,6 @@ interface Step1Props {
   parcelas: Parcela[];
   onTemplateFile: (f: File | null) => void;
   onTaxaJuros: (v: number) => void;
-  onCustosAdicionais: (v: number) => void;
   onDataRenegociacao: (d: Date) => void;
   onIsRegistrado: (v: boolean) => void;
   onClienteSelect: (c: ClienteSienge | null) => void;
@@ -119,7 +118,6 @@ export function Step1({
   parcelas,
   onTemplateFile,
   onTaxaJuros,
-  onCustosAdicionais,
   onDataRenegociacao,
   onIsRegistrado,
   onClienteSelect,
@@ -534,20 +532,18 @@ export function Step1({
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="custos">Custos Adicionais (R$)</Label>
+            <Label htmlFor="custos">Custo Fixo (R$)</Label>
             <div className="relative">
               <Input
                 id="custos"
                 type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
                 value={custosAdicionais || ''}
-                onChange={(e) => onCustosAdicionais(parseFloat(e.target.value) || 0)}
+                disabled
                 className="pl-10 tabular-nums"
               />
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
             </div>
+            <p className="text-[11px] text-muted-foreground">Definido nas configurações</p>
           </div>
           <div className="space-y-2">
             <Label>Data da Renegociação</Label>

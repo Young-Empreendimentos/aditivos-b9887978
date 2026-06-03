@@ -132,3 +132,32 @@ export async function listConfiguracoes(): Promise<ConfiguracaoEmpresa[]> {
   const snap = await getDocs(collection(db, COLLECTION));
   return snap.docs.map((d) => d.data() as ConfiguracaoEmpresa);
 }
+
+// ─── Configurações globais (custo fixo, etc.) ────────────────────────────────
+
+const GLOBAL_DOC = 'configuracoes_globais';
+const GLOBAL_ID = 'aditivo';
+
+export interface ConfigGlobal {
+  custoFixo: number;
+  updatedAt?: number;
+  updatedBy?: string | null;
+}
+
+export async function getConfigGlobal(): Promise<ConfigGlobal | null> {
+  const ref = doc(db, GLOBAL_DOC, GLOBAL_ID);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+  return snap.data() as ConfigGlobal;
+}
+
+export async function saveConfigGlobal(
+  config: Omit<ConfigGlobal, 'updatedAt' | 'updatedBy'>,
+): Promise<void> {
+  const ref = doc(db, GLOBAL_DOC, GLOBAL_ID);
+  await setDoc(ref, {
+    ...config,
+    updatedAt: Date.now(),
+    updatedBy: auth.currentUser?.email ?? auth.currentUser?.uid ?? null,
+  }, { merge: true });
+}
