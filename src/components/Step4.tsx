@@ -121,7 +121,7 @@ export function Step4({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {quadro1.map((p) => (
+                  {[...quadro1].sort((a, b) => a.numero - b.numero).map((p) => (
                     <TableRow key={p.rowIndex}>
                       <TableCell className="tabular-nums font-medium">{String(p.numero).padStart(2, '0')}</TableCell>
                       <TableCell className="tabular-nums">{format(p.dataVencimento, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>

@@ -183,6 +183,7 @@ const GeradorAditivo = () => {
             parcelas={parcelas}
             selectedIds={selectedIds}
             onSelectionChange={setSelectedIds}
+            onParcelasChange={setParcelas}
             onNext={() => setCurrentStep(3)}
             onBack={() => setCurrentStep(1)}
           />

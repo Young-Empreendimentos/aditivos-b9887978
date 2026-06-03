@@ -94,12 +94,15 @@ function mapRowsToParcelas(rows: SiengeParcelaRow[]): Parcela[] {
     })
     .filter((p): p is Parcela => p !== null);
 
-  parcelas.sort((a, b) => a.dataVencimento.getTime() - b.dataVencimento.getTime());
-  // Todas as parcelas entram para renegociação — nenhuma é tratada como entrada
+  // Usar numeração original do Sienge (installment_number).
+  // Fallback: sequencial (1, 2, 3...) caso o Sienge não forneça.
   parcelas.forEach((p, i) => {
     p.isEntrada = false;
-    p.numero = i + 1;
+    const numSienge = Number(p.parcelaOriginal);
+    p.numero = numSienge > 0 ? numSienge : i + 1;
   });
+  // Ordenar por número da parcela (não por vencimento)
+  parcelas.sort((a, b) => a.numero - b.numero);
   return parcelas;
 }
 

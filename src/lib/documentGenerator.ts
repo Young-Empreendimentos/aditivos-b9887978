@@ -117,14 +117,18 @@ export async function generateDocx(
   const totalQuadro1 = selectedParcelas.reduce((s, p) => s + p.saldoAtual, 0);
   const totalQuadro2 = novasParcelas.reduce((s, p) => s + p.valor, 0);
 
+  // Ordenar por número da parcela antes de gerar as linhas do documento
+  const sortedQ1 = [...selectedParcelas].sort((a, b) => a.numero - b.numero);
+  const sortedQ2 = [...novasParcelas].sort((a, b) => a.numero - b.numero);
+
   // Arrays para os loops nativos do docxtemplater {{#quadro1}}...{{/quadro1}}
-  const quadro1Rows = selectedParcelas.map((p) => ({
+  const quadro1Rows = sortedQ1.map((p) => ({
     numero: String(p.numero).padStart(2, '0'),
     vencimento: formatDate(p.dataVencimento),
     cliente: clienteName,
     valor: formatCurrency(p.saldoAtual),
   }));
-  const quadro2Rows = novasParcelas.map((p) => ({
+  const quadro2Rows = sortedQ2.map((p) => ({
     numero: String(p.numero).padStart(2, '0'),
     vencimento: formatDate(p.dataVencimento),
     cliente: clienteName,
@@ -191,8 +195,8 @@ export async function generateDocx(
     return xml;
   };
 
-  const quadro1Xml = buildQuadro1Xml(selectedParcelas);
-  const quadro2Xml = buildQuadro2Xml(novasParcelas);
+  const quadro1Xml = buildQuadro1Xml(sortedQ1);
+  const quadro2Xml = buildQuadro2Xml(sortedQ2);
   docXml = replacePlaceholder(docXml, '___QUADRO1_PLACEHOLDER___', quadro1Xml);
   docXml = replacePlaceholder(docXml, '___QUADRO2_PLACEHOLDER___', quadro2Xml);
   docXml = replacePlaceholder(docXml, '{{QUADRO_1}}', quadro1Xml);

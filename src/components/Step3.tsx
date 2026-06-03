@@ -105,8 +105,8 @@ export function Step3({
       items.push({ ...p, tipo: 'nova' });
     });
 
-    // Ordenar por data
-    items.sort((a, b) => a.dataVencimento.getTime() - b.dataVencimento.getTime());
+    // Ordenar por número da parcela
+    items.sort((a, b) => a.numero - b.numero);
 
     // Agrupar parcelas na mesma data em uma única parcela
     const merged: NovaParcela[] = [];

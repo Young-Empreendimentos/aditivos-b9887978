@@ -3,10 +3,10 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
 import { formatCurrency } from '@/lib/formatters';
 import type { Parcela } from '@/types/contract';
 import { toast } from 'sonner';
@@ -15,11 +15,12 @@ interface Step2Props {
   parcelas: Parcela[];
   selectedIds: Set<number>;
   onSelectionChange: (ids: Set<number>) => void;
+  onParcelasChange: (parcelas: Parcela[]) => void;
   onNext: () => void;
   onBack: () => void;
 }
 
-export function Step2({ parcelas, selectedIds, onSelectionChange, onNext, onBack }: Step2Props) {
+export function Step2({ parcelas, selectedIds, onSelectionChange, onParcelasChange, onNext, onBack }: Step2Props) {
   const selectableParcelas = useMemo(() => parcelas, [parcelas]);
 
   const allSelected = selectableParcelas.length > 0 && selectableParcelas.every((p) => selectedIds.has(p.rowIndex));
@@ -44,6 +45,21 @@ export function Step2({ parcelas, selectedIds, onSelectionChange, onNext, onBack
     [parcelas, selectedIds]
   );
 
+  /** Altera o número de uma parcela por índice na lista */
+  function updateNumero(idx: number, newNum: number) {
+    const updated = parcelas.map((p, i) => (i === idx ? { ...p, numero: newNum } : p));
+    onParcelasChange(updated);
+  }
+
+  /** Renumera sequencialmente a partir da parcela clicada (+1 para cada seguinte) */
+  function renumberFrom(idx: number) {
+    const startNum = parcelas[idx].numero;
+    const updated = parcelas.map((p, i) =>
+      i >= idx ? { ...p, numero: startNum + (i - idx) } : p
+    );
+    onParcelasChange(updated);
+  }
+
   const handleNext = () => {
     if (selectedIds.size === 0) {
       toast.error('Selecione ao menos uma parcela para reparcelar');
@@ -67,7 +83,7 @@ export function Step2({ parcelas, selectedIds, onSelectionChange, onNext, onBack
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="w-10"></TableHead>
-                  <TableHead className="w-20">Nº Parc.</TableHead>
+                  <TableHead className="w-28">Nº Parc.</TableHead>
                   <TableHead>Data Vencimento</TableHead>
                   <TableHead className="text-right">Valor Original</TableHead>
                   <TableHead className="text-right">Saldo Atual c/ encargos</TableHead>
@@ -75,7 +91,7 @@ export function Step2({ parcelas, selectedIds, onSelectionChange, onNext, onBack
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {parcelas.map((p) => (
+                {parcelas.map((p, idx) => (
                   <TableRow
                     key={p.rowIndex}
                     className={selectedIds.has(p.rowIndex) ? 'bg-primary/5' : ''}
@@ -86,8 +102,25 @@ export function Step2({ parcelas, selectedIds, onSelectionChange, onNext, onBack
                         onCheckedChange={() => toggle(p.rowIndex)}
                       />
                     </TableCell>
-                    <TableCell className="tabular-nums font-medium">
-                      {String(p.numero).padStart(2, '0')}
+                    <TableCell>
+                      <div className="flex items-center gap-0.5">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={p.numero}
+                          onChange={(e) => updateNumero(idx, parseInt(e.target.value) || 0)}
+                          className="w-16 h-7 text-center tabular-nums px-1"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0"
+                          title="Renumerar daqui para baixo (+1)"
+                          onClick={() => renumberFrom(idx)}
+                        >
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                     <TableCell className="tabular-nums">
                       {format(p.dataVencimento, 'dd/MM/yyyy', { locale: ptBR })}
