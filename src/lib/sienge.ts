@@ -326,3 +326,32 @@ export async function getDadosContrato(billId: number | string): Promise<DadosCo
     ],
   };
 }
+
+/**
+ * Busca o índice de correção monetária (ex: IGP-M, IPCA, INCC-DI)
+ * a partir de paymentConditions do contrato de venda no Sienge.
+ * Prioriza a condição "Parcelas Mensais"; se não existir, pega a primeira não-REAL.
+ */
+export async function getCorrecaoMonetaria(billId: number | string): Promise<string> {
+  const { data, error } = await supabase
+    .from("sienge_contratos_de_vendas")
+    .select("raw_data")
+    .eq("receivable_bill_id", typeof billId === "string" ? Number(billId) : billId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data?.raw_data) return "";
+
+  const conditions = (data.raw_data as any)?.paymentConditions;
+  if (!Array.isArray(conditions) || conditions.length === 0) return "";
+
+  // Prioriza "Parcelas Mensais"
+  const mensais = conditions.find(
+    (c: any) => c.conditionTypeName === "Parcelas Mensais" && c.indexerName && c.indexerName !== "REAL",
+  );
+  if (mensais) return mensais.indexerName;
+
+  // Fallback: primeira condição com indexador diferente de REAL
+  const qualquer = conditions.find((c: any) => c.indexerName && c.indexerName !== "REAL");
+  return qualquer?.indexerName ?? "";
+}

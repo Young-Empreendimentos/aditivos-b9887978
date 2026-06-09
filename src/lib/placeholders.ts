@@ -280,6 +280,9 @@ export function buildPlaceholders(
     VALOR_TOTAL_EXTENSO: valorPorExtenso(
       Number(String(form.valor_total).replace(',', '.')) || 0,
     ),
+    // Correção monetária (índice varia por contrato)
+    CORRECAO_MONETARIA: form.correcao_monetaria ?? '',
+    INDICE_CORRECAO: form.correcao_monetaria ?? '',
     // Dados do Cartório (somente quando isRegistrado=true; string vazia quando não aplicável)
     DATA_REGISTRO: fmtDateShort(form.data_registro ?? ''),
     REG_COMPRA_VENDA: form.reg_compra_venda ?? '',

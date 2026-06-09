@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { getDadosContrato, type DadosContrato, type ParteContrato } from '@/lib/sienge';
+import { getDadosContrato, getCorrecaoMonetaria, type DadosContrato, type ParteContrato } from '@/lib/sienge';
 import {
   type DadosContratoForm,
   type ParteForm,
@@ -181,13 +181,17 @@ export function StepDadosContrato({
         numeroContratoFallback,
       );
       onFormChange(knownForm);
-      const api = await getDadosContrato(billId);
+      const [api, correcao] = await Promise.all([
+        getDadosContrato(billId),
+        getCorrecaoMonetaria(billId),
+      ]);
       const valido = api && api.contrato && typeof api.contrato === 'object';
       if (valido) {
-        onFormChange(applyApiToForm(api!, knownForm));
+        const merged = applyApiToForm(api!, knownForm);
+        onFormChange({ ...merged, correcao_monetaria: correcao || merged.correcao_monetaria });
         toast.success('Dados do contrato carregados');
       } else {
-        onFormChange(knownForm);
+        onFormChange({ ...knownForm, correcao_monetaria: correcao || knownForm.correcao_monetaria });
         toast.warning('Sem dados retornados. Preencha manualmente.');
       }
       setLoadedFor(billId);
@@ -305,6 +309,16 @@ export function StepDadosContrato({
             />
             <p className="text-xs text-muted-foreground mt-1">
               Data em que o contrato foi assinado — não disponível no Sienge, preencha manualmente.
+            </p>
+          </Field>
+          <Field label={<span>Correção monetária (índice) <span className="text-destructive">*</span></span>}>
+            <Input
+              placeholder="Ex: IGP-M (Índice Geral de Preços do Mercado, aferido pela Fundação Getúlio Vargas)"
+              value={form.correcao_monetaria}
+              onChange={(e) => onFormChange({ ...form, correcao_monetaria: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Índice de correção que aparecerá no documento. Varia por contrato.
             </p>
           </Field>
         </CardContent>

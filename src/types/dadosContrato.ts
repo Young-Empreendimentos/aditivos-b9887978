@@ -52,6 +52,8 @@ export interface DadosContratoForm {
   reg_compra_venda: string;    // e.g. "R.5-26.848"
   reg_alienacao: string;       // e.g. "R.6-26.848"
   averbacoes: Averbacao[];
+  // Correção monetária (índice varia por contrato, ex: IGP-M, INCC, IPCA)
+  correcao_monetaria: string;
   // Partes
   comprador: ParteForm;
   temConjuge: boolean;
@@ -91,6 +93,7 @@ export function emptyDadosContratoForm(): DadosContratoForm {
     numero_contrato: "",
     data_contrato: "",
     valor_total: "",
+    correcao_monetaria: "",
     data_registro: "",
     reg_compra_venda: "",
     reg_alienacao: "",
