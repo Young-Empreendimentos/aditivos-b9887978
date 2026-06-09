@@ -6,6 +6,17 @@ function fmtCurrency(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+/** Converte string em formato BR (ex: "150.000,00" ou "150000.00") para number */
+function parseBRL(raw: string | number | null | undefined): number {
+  if (raw == null) return 0;
+  const s = String(raw).trim();
+  if (!s) return 0;
+  // Se tem vírgula, assume formato BR: remove pontos de milhar e troca vírgula por ponto
+  if (s.includes(',')) return Number(s.replace(/\./g, '').replace(',', '.')) || 0;
+  // Senão, assume formato numérico normal (ex: "150000.00")
+  return Number(s) || 0;
+}
+
 /**
  * Converte um valor numérico BRL para extenso em português.
  * Ex: 77249.60 → "setenta e sete mil, duzentos e quarenta e nove reais com sessenta centavos"
@@ -46,13 +57,19 @@ export function valorPorExtenso(n: number): string {
 
   function inteiro(v: number): string {
     if (v === 0) return 'zero';
-    const mil = Math.floor(v / 1000);
-    const resto = v % 1000;
+    const milhoes = Math.floor(v / 1_000_000);
+    const restoMilhoes = v % 1_000_000;
+    const mil = Math.floor(restoMilhoes / 1000);
+    const resto = restoMilhoes % 1000;
     const parts: string[] = [];
+    if (milhoes) parts.push(milhoes === 1 ? 'um milhão' : `${centena(milhoes)} milhões`);
     if (mil) parts.push(mil === 1 ? 'mil' : `${centena(mil)} mil`);
     if (resto) parts.push(centena(resto));
-    if (mil && resto) return resto >= 100 ? parts.join(', ') : parts.join(' e ');
-    return parts[0] ?? '';
+    // Regra de pontuação: vírgula antes de centenas completas, "e" antes de dezenas/unidades
+    if (parts.length === 1) return parts[0];
+    const last = parts[parts.length - 1];
+    const init = parts.slice(0, -1).join(', ');
+    return `${init} e ${last}`;
   }
 
   const parts: string[] = [];
@@ -103,8 +120,9 @@ function enderecoStr(p: ParteForm): string {
 }
 
 function fmtValor(s: string): string {
-  const n = Number(String(s).replace(',', '.'));
-  if (!isFinite(n) || !s) return s ?? '';
+  const n = parseBRL(s);
+  if (!n && !s) return s ?? '';
+  if (!n) return s;
   return fmtCurrency(n);
 }
 
@@ -274,12 +292,8 @@ export function buildPlaceholders(
     NOME_DEVEDOR_2: mostrarConjuge ? j.nome : '',
     // Valor da dívida conforme matrícula (preenchimento manual pelo usuário)
     VALOR_ANTIGO: fmtValor(form.valor_antigo_matricula),
-    VALOR_ANTIGO_EXTENSO: valorPorExtenso(
-      Number(String(form.valor_antigo_matricula).replace(',', '.')) || 0,
-    ),
-    VALOR_TOTAL_EXTENSO: valorPorExtenso(
-      Number(String(form.valor_total).replace(',', '.')) || 0,
-    ),
+    VALOR_ANTIGO_EXTENSO: valorPorExtenso(parseBRL(form.valor_antigo_matricula)),
+    VALOR_TOTAL_EXTENSO: valorPorExtenso(parseBRL(form.valor_total)),
     // Correção monetária (índice varia por contrato)
     CORRECAO_MONETARIA: form.correcao_monetaria ?? '',
     INDICE_CORRECAO: form.correcao_monetaria ?? '',
