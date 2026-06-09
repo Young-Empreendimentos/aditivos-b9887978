@@ -158,6 +158,22 @@ const Index = () => {
               </CardHeader>
             </Card>
           </Link>
+
+          <Link to="/gerador-aditivo/historico" className="group">
+            <Card className="relative h-full overflow-hidden border-border/60 transition-all hover:shadow-xl hover:border-primary/50 hover:-translate-y-0.5">
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-primary/40" />
+              <CardHeader>
+                <div className="h-11 w-11 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  <BookOpen className="h-5 w-5 text-primary group-hover:text-primary-foreground" />
+                </div>
+                <CardTitle className="flex items-center justify-between">
+                  Histórico de Aditivos
+                  <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
+                </CardTitle>
+                <CardDescription>Consulte e acompanhe todas as simulações de aditivos contratuais salvas pela equipe</CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
         </div>
       </div>
     </div>

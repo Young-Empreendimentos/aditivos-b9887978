@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowLeft, Download, FileText, Loader2 } from 'lucide-react';
+import { ArrowLeft, Download, FileText, Loader2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -9,9 +9,11 @@ import { Badge } from '@/components/ui/badge';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
 import { generateDocx, downloadDocx, generateAndDownloadPdf } from '@/lib/documentGenerator';
 import { buildPlaceholders } from '@/lib/placeholders';
+import { salvarAditivo } from '@/lib/aditivoHistorico';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Parcela, NovaParcela } from '@/types/contract';
 import type { DadosContratoForm } from '@/types/dadosContrato';
-import type { ClienteSienge } from '@/lib/sienge';
+import type { ClienteSienge, ContratoSienge } from '@/lib/sienge';
 import { toast } from 'sonner';
 
 interface Step4Props {
@@ -28,18 +30,22 @@ interface Step4Props {
   pmtValue: number;
   dadosForm: DadosContratoForm;
   selectedCliente: ClienteSienge | null;
+  selectedContrato: ContratoSienge | null;
   dataRenegociacao: Date | null;
+  isRegistrado: boolean;
   onBack: () => void;
 }
 
 export function Step4({
   templateFile, allParcelas, selectedParcelas, selectedIds, novasParcelas,
   taxaJuros, custosAdicionais, pvTotal, totalJuros, valorTotalRenegociado, pmtValue,
-  dadosForm, selectedCliente, dataRenegociacao, onBack
+  dadosForm, selectedCliente, selectedContrato, dataRenegociacao, isRegistrado, onBack
 }: Step4Props) {
+  const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Quadro 1: todas as parcelas com saldo > 0 (incluindo as selecionadas para renegociação)
+  // Quadro 1: todas as parcelas com saldo > 0 (incluindo as selecionadas para renegociacao)
   const quadro1 = allParcelas.filter(p => selectedIds.has(p.rowIndex) || p.saldoAtual > 0);
 
   const sanitize = (s: string) => s.replace(/[\\/:*?"<>|]+/g, '_').trim() || 'documento';
@@ -72,6 +78,56 @@ export function Step4({
       toast.error(`Erro ao gerar PDF: ${err.message}`);
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleSalvar = async () => {
+    if (!selectedContrato || !selectedCliente) {
+      toast.error('Contrato ou cliente nao selecionado.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const sortedQ1 = [...quadro1].sort((a, b) => a.numero - b.numero);
+      const sortedQ2 = [...novasParcelas].sort((a, b) => a.numero - b.numero);
+
+      await salvarAditivo({
+        criadoPor: user?.email ?? 'desconhecido',
+        criadoPorNome: user?.displayName ?? user?.email ?? 'desconhecido',
+        billId: String(selectedContrato.bill_id),
+        clienteId: String(selectedCliente.client_id),
+        clienteNome: selectedCliente.client_name,
+        contratoNumero: selectedContrato.bill_document ?? String(selectedContrato.bill_id),
+        empreendimento: selectedContrato.business_area_name ?? dadosForm.empreendimento ?? '',
+        empresa: selectedContrato.company_name ?? '',
+        isRegistrado,
+        taxaJuros,
+        custosAdicionais,
+        correcaoMonetaria: dadosForm.correcao_monetaria ?? '',
+        dataRenegociacao: dataRenegociacao ? dataRenegociacao.toISOString().split('T')[0] : '',
+        totalQuadro1: sortedQ1.reduce((s, p) => s + p.valorOriginal, 0),
+        totalQuadro2: sortedQ2.reduce((s, p) => s + p.valor, 0),
+        valorTotalRenegociado,
+        pvTotal,
+        totalJuros,
+        parcelasQuadro1: sortedQ1.map((p) => ({
+          numero: p.numero,
+          dataVencimento: p.dataVencimento.toISOString().split('T')[0],
+          valorOriginal: p.valorOriginal,
+        })),
+        parcelasQuadro2: sortedQ2.map((p) => ({
+          numero: p.numero,
+          dataVencimento: p.dataVencimento.toISOString().split('T')[0],
+          valor: p.valor,
+          tipo: p.tipo,
+        })),
+        status: 'simulado',
+      });
+      toast.success('Simulacao salva no historico!');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -115,7 +171,7 @@ export function Step4({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="w-16">Nº</TableHead>
+                    <TableHead className="w-16">N</TableHead>
                     <TableHead>Vencimento</TableHead>
                     <TableHead className="text-right">Valor Original</TableHead>
                   </TableRow>
@@ -143,7 +199,7 @@ export function Step4({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="w-16">Nº</TableHead>
+                    <TableHead className="w-16">N</TableHead>
                     <TableHead>Vencimento</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
                     <TableHead className="w-20">Tipo</TableHead>
@@ -170,17 +226,21 @@ export function Step4({
 
       {/* Actions */}
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack} disabled={generating}>
+        <Button variant="outline" onClick={onBack} disabled={generating || saving}>
           <ArrowLeft className="w-4 h-4" /> Voltar
         </Button>
         <div className="flex gap-2">
+          <Button onClick={handleSalvar} disabled={saving || generating} variant="secondary">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Salvar simulacao
+          </Button>
           {templateFile && (
-            <Button onClick={handleGenerateDocx} disabled={generating} variant="outline">
+            <Button onClick={handleGenerateDocx} disabled={generating || saving} variant="outline">
               {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
               Baixar .docx
             </Button>
           )}
-          <Button onClick={handleGeneratePdf} disabled={generating}>
+          <Button onClick={handleGeneratePdf} disabled={generating || saving}>
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             Baixar PDF
           </Button>
