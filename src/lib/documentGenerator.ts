@@ -106,9 +106,9 @@ export async function generateDocx(
   // Campo obrigatório — validado no StepDadosContrato antes de chegar aqui.
   const valorAntigoFinal = extraPlaceholders.VALOR_ANTIGO ?? '';
 
-  // Nome do devedor para preencher coluna "Cliente" nas linhas das tabelas
+  // Nome do comprador (sem cônjuge) para a coluna "Cliente" nas tabelas.
+  // Cônjuge já consta no contrato original — não precisa repetir nas tabelas.
   const clienteName =
-    extraPlaceholders.NOME_DEVEDOR ??
     extraPlaceholders.NOME_COMPRADOR ??
     extraPlaceholders.CLIENTE ??
     '';
