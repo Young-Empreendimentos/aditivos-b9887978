@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
+  FileText,
   Loader2,
   Pencil,
   RefreshCw,
@@ -51,6 +52,11 @@ import {
   type RegistroAditivo,
   type StatusAditivo,
 } from '@/lib/aditivoHistorico';
+import { fetchTemplateAsFile, listConfiguracoes } from '@/lib/configuracoes';
+import { generateDocx, downloadDocx } from '@/lib/documentGenerator';
+import { buildPlaceholders } from '@/lib/placeholders';
+import type { Parcela, NovaParcela } from '@/types/contract';
+import { emptyDadosContratoForm } from '@/types/dadosContrato';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -186,6 +192,76 @@ function RegistroRow({
   onToggle: () => void;
   onEditStatus: () => void;
 }) {
+  const [generatingDoc, setGeneratingDoc] = useState(false);
+
+  async function handleGerarDocx() {
+    if (!r.dadosForm) {
+      toast.error('Este registro nao possui dados suficientes para gerar o documento. Salve novamente a partir do gerador.');
+      return;
+    }
+    setGeneratingDoc(true);
+    try {
+      // Buscar template da configuracao da empresa
+      const configs = await listConfiguracoes();
+      const empresaCfg = configs.find(c =>
+        c.company_name === r.empresa ||
+        c.company_id === r.empresa
+      );
+      if (!empresaCfg) {
+        toast.error('Configuracao da empresa nao encontrada. Verifique se o template esta cadastrado.');
+        return;
+      }
+      const templateFile = await fetchTemplateAsFile(empresaCfg, r.isRegistrado);
+      if (!templateFile) {
+        toast.error(`Nenhum template ${r.isRegistrado ? 'registrado' : 'nao registrado'} cadastrado para ${r.empresa}.`);
+        return;
+      }
+
+      // Reconstruir parcelas no formato esperado pelo gerador
+      const parcelas: Parcela[] = r.parcelasQuadro1.map((p, i) => ({
+        rowIndex: i,
+        numero: p.numero,
+        dataVencimento: new Date(p.dataVencimento + 'T12:00:00'),
+        parcelaOriginal: String(p.numero),
+        tipoCondicao: '',
+        valorOriginal: p.valorOriginal,
+        saldoAtual: p.valorOriginal, // para filtro do quadro1
+        isEntrada: false,
+      }));
+
+      const novasParcelas: NovaParcela[] = r.parcelasQuadro2.map((p) => ({
+        numero: p.numero,
+        dataVencimento: new Date(p.dataVencimento + 'T12:00:00'),
+        valor: p.valor,
+        tipo: p.tipo as 'nova' | 'reforco' | 'mantida',
+      }));
+
+      const dadosForm = r.dadosForm ?? emptyDadosContratoForm();
+      const dataReneg = r.dataRenegociacao ? new Date(r.dataRenegociacao + 'T12:00:00') : null;
+      const placeholders = buildPlaceholders(dadosForm, { dataRenegociacao: dataReneg });
+
+      const blob = await generateDocx(
+        templateFile,
+        parcelas,
+        novasParcelas,
+        r.taxaJuros,
+        r.custosAdicionais,
+        r.valorTotalRenegociado,
+        placeholders,
+      );
+
+      const sanitize = (s: string) => s.replace(/[\\/:*?"<>|]+/g, '_').trim() || 'documento';
+      const fileName = `Aditivo_${sanitize(r.contratoNumero)}_${sanitize(r.clienteNome)}.docx`;
+      downloadDocx(blob, fileName);
+      toast.success('Documento gerado com sucesso!');
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Erro ao gerar documento');
+    } finally {
+      setGeneratingDoc(false);
+    }
+  }
+
   return (
     <>
       <TableRow
@@ -358,6 +434,21 @@ function RegistroRow({
                 </div>
                 <div className="mt-4 text-[11px] text-muted-foreground">
                   Simulado por: <span className="text-foreground">{r.criadoPorNome}</span>
+                </div>
+
+                {/* Gerar documento */}
+                <div className="mt-4">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={generatingDoc}
+                    onClick={(e) => { e.stopPropagation(); handleGerarDocx(); }}
+                  >
+                    {generatingDoc
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                      : <FileText className="h-3.5 w-3.5 mr-1" />}
+                    Gerar .docx
+                  </Button>
                 </div>
               </div>
             </div>

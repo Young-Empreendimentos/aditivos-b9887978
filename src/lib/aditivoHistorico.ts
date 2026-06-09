@@ -17,6 +17,7 @@ import {
   query,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import type { DadosContratoForm } from '@/types/dadosContrato';
 
 export const HISTORICO_COLLECTION = 'aditivo_historico';
 
@@ -91,6 +92,9 @@ export interface RegistroAditivo {
   // Parcelas
   parcelasQuadro1: ParcelaQ1Historico[];
   parcelasQuadro2: ParcelaQ2Historico[];
+
+  // Dados do contrato (para regenerar documento)
+  dadosForm?: DadosContratoForm;
 
   // Workflow
   status: StatusAditivo;

@@ -121,6 +121,7 @@ export function Step4({
           valor: p.valor,
           tipo: p.tipo,
         })),
+        dadosForm,
         status: 'simulado',
       });
       toast.success('Simulacao salva no historico!');
