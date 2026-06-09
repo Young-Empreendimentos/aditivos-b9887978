@@ -51,16 +51,16 @@ function buildQuadro1Xml(parcelas: Parcela[]): string {
   const headerRow = ooRow([
     ooCell('Nº Parcela', true, 'center'),
     ooCell('Data Vencimento', true, 'center'),
-    ooCell('Saldo Atual', true, 'center'),
+    ooCell('Valor Original', true, 'center'),
   ], true);
 
   const dataRows = parcelas.map(p => ooRow([
     ooCell(String(p.numero).padStart(2, '0'), false, 'center'),
     ooCell(formatDate(p.dataVencimento), false, 'center'),
-    ooCell(formatCurrency(p.saldoAtual), false, 'right'),
+    ooCell(formatCurrency(p.valorOriginal), false, 'right'),
   ]));
 
-  const total = parcelas.reduce((s, p) => s + p.saldoAtual, 0);
+  const total = parcelas.reduce((s, p) => s + p.valorOriginal, 0);
   const totalRow = ooRow([ooCell('Total', true, 'center'), ooCell('', false, 'center'), ooCell(formatCurrency(total), true, 'right')]);
   return buildTblXml(`${headerRow}${dataRows.join('')}${totalRow}`);
 }
@@ -114,7 +114,7 @@ export async function generateDocx(
     '';
 
   // Totais das tabelas
-  const totalQuadro1 = selectedParcelas.reduce((s, p) => s + p.saldoAtual, 0);
+  const totalQuadro1 = selectedParcelas.reduce((s, p) => s + p.valorOriginal, 0);
   const totalQuadro2 = novasParcelas.reduce((s, p) => s + p.valor, 0);
 
   // Ordenar por número da parcela antes de gerar as linhas do documento
@@ -126,7 +126,7 @@ export async function generateDocx(
     numero: String(p.numero).padStart(2, '0'),
     vencimento: formatDate(p.dataVencimento),
     cliente: clienteName,
-    valor: formatCurrency(p.saldoAtual),
+    valor: formatCurrency(p.valorOriginal),
   }));
   const quadro2Rows = sortedQ2.map((p) => ({
     numero: String(p.numero).padStart(2, '0'),
