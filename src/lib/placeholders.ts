@@ -183,10 +183,8 @@ export function buildPlaceholders(
 ): Record<string, string> {
   const c = form.comprador;
   const j = form.conjuge;
-  const mostrarConjuge =
-    form.temConjuge ||
-    c.estado_civil === 'Casado(a)' ||
-    c.estado_civil === 'União Estável';
+  // Cônjuge não vai para o aditivo — já consta no contrato original.
+  const mostrarConjuge = false;
 
   let cidadeData = '';
   let dataRenegociacaoExtenso = '';

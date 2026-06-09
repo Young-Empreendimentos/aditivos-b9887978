@@ -320,19 +320,8 @@ export function StepDadosContrato({
         </CardContent>
       </Card>
 
-      {/* Toggle cônjuge */}
-      <div className="flex items-center gap-2">
-        <Checkbox
-          id="temConjuge"
-          checked={mostrarConjuge}
-          onCheckedChange={(c) => onFormChange({ ...form, temConjuge: !!c })}
-        />
-        <Label htmlFor="temConjuge" className="cursor-pointer">
-          Incluir cônjuge / companheiro(a)
-        </Label>
-      </div>
-
-      {mostrarConjuge && (
+      {/* Cônjuge removido do aditivo — já consta no contrato original */}
+      {false && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Cônjuge / Companheiro(a)</CardTitle>
