@@ -12,7 +12,6 @@ const ALLOWED_DOMAIN = '@youngempreendimentos.com.br';
 // O restante é liberado por eles na tela de Usuários.
 const SEED_ROLES: Record<string, Role> = {
   'eduardo@youngempreendimentos.com.br': 'admin',
-  'elen@youngempreendimentos.com.br': 'admin',
   'suelen@youngempreendimentos.com.br': 'coordinator',
 };
 
