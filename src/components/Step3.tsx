@@ -1,20 +1,37 @@
-import { useMemo, useState } from 'react';
-import { format } from 'date-fns';
+import { useEffect, useMemo, useState } from 'react';
+import { format, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, ArrowLeft, ArrowRight, ArrowDown, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowDown, Plus, Trash2, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DateInput } from '@/components/DateInput';
 import { calculatePMT, generateNovasParcelas, calcularTotalPVReforcos, capitalizarParcelaParaDataBase } from '@/lib/financial';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
 import type { Parcela, NovaParcela, Reforco } from '@/types/contract';
 import { toast } from 'sonner';
+
+type Periodicidade = 'anual' | 'semestral' | 'trimestral';
+
+const MESES_POR_PERIODO: Record<Periodicidade, number> = {
+  anual: 12,
+  semestral: 6,
+  trimestral: 3,
+};
+
+/** Converte texto "1.500,00" → 1500 */
+function parseValor(s: string): number {
+  return parseFloat(s.replace(/\./g, '').replace(',', '.'));
+}
+
+/** Número → "1.500,00" para edição em input */
+function formatValorInput(n: number): string {
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 interface Step3Props {
   parcelas: Parcela[];
@@ -39,8 +56,16 @@ export function Step3({
   onNumParcelas, onStartDate, onReforcos, onSimulationResult, onNext, onBack
 }: Step3Props) {
 
+  // Reforço manual
   const [reforcoData, setReforcoData] = useState<Date | null>(null);
   const [reforcoValor, setReforcoValor] = useState('');
+
+  // Reforço automático
+  const [autoPeriod, setAutoPeriod] = useState<Periodicidade>('anual');
+  const [autoValor, setAutoValor] = useState('');
+  const [autoQtd, setAutoQtd] = useState('');
+  const [autoStart, setAutoStart] = useState<Date | null>(null);
+
   const [manualNumeros, setManualNumeros] = useState<number[] | null>(null);
 
   // Parcelas não selecionadas (mantidas)
@@ -51,7 +76,7 @@ export function Step3({
 
   // PV bruto = soma dos saldos capitalizados até a data da renegociação + custos
   const pvBruto = useMemo(
-    () => selectedParcelas.reduce((s, p) => 
+    () => selectedParcelas.reduce((s, p) =>
       s + capitalizarParcelaParaDataBase(p.saldoAtual, p.dataVencimento, dataRenegociacao, taxaJuros), 0
     ) + custosAdicionais,
     [selectedParcelas, custosAdicionais, dataRenegociacao, taxaJuros]
@@ -136,17 +161,45 @@ export function Step3({
   const totalJuros = totalRenegociado - pvBruto;
 
   const addReforco = () => {
-    if (!reforcoData) { toast.error('Selecione a data do reforço'); return; }
-    const val = parseFloat(reforcoValor.replace(/\./g, '').replace(',', '.'));
+    if (!reforcoData) { toast.error('Informe a data do reforço'); return; }
+    const val = parseValor(reforcoValor);
     if (!val || val <= 0) { toast.error('Informe um valor válido para o reforço'); return; }
     onReforcos([...reforcos, { id: crypto.randomUUID(), data: reforcoData, valor: val }]);
     setReforcoData(null);
     setReforcoValor('');
   };
 
+  const gerarReforcosAuto = () => {
+    if (!autoStart) { toast.error('Informe a data do primeiro reforço'); return; }
+    const val = parseValor(autoValor);
+    if (!val || val <= 0) { toast.error('Informe um valor válido para o reforço'); return; }
+    const qtd = parseInt(autoQtd);
+    if (!qtd || qtd <= 0) { toast.error('Informe quantos reforços gerar'); return; }
+    if (qtd > 240) { toast.error('Quantidade muito alta (máx. 240)'); return; }
+    const meses = MESES_POR_PERIODO[autoPeriod];
+    const novos: Reforco[] = [];
+    for (let k = 0; k < qtd; k++) {
+      novos.push({ id: crypto.randomUUID(), data: addMonths(autoStart, meses * k), valor: val });
+    }
+    onReforcos([...reforcos, ...novos]);
+    toast.success(`${qtd} reforço(s) gerado(s) — você pode editar ou excluir cada um abaixo`);
+    setAutoValor('');
+    setAutoQtd('');
+    setAutoStart(null);
+  };
+
+  const updateReforco = (id: string, patch: Partial<Reforco>) => {
+    onReforcos(reforcos.map(r => (r.id === id ? { ...r, ...patch } : r)));
+  };
+
   const removeReforco = (id: string) => {
     onReforcos(reforcos.filter(r => r.id !== id));
   };
+
+  const reforcosOrdenados = useMemo(
+    () => [...reforcos].sort((a, b) => a.data.getTime() - b.data.getTime()),
+    [reforcos]
+  );
 
   const handleNext = () => {
     if (numParcelas <= 0) { toast.error('Informe o número de parcelas'); return; }
@@ -178,27 +231,12 @@ export function Step3({
         <Card>
           <CardContent className="pt-6">
             <div className="space-y-2">
-              <Label>Data do 1º vencimento</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn('w-full justify-start text-left font-normal', !startDate && 'text-muted-foreground')}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecionar data'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={startDate || undefined}
-                    onSelect={(d) => d && onStartDate(d)}
-                    initialFocus
-                    className={cn('p-3 pointer-events-auto')}
-                  />
-                </PopoverContent>
-              </Popover>
+              <Label htmlFor="startDate">Data do 1º vencimento</Label>
+              <DateInput
+                id="startDate"
+                value={startDate}
+                onChange={(d) => d && onStartDate(d)}
+              />
             </div>
           </CardContent>
         </Card>
@@ -244,70 +282,98 @@ export function Step3({
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Reforços (pagamentos avulsos)</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-3 items-end">
-            <div className="space-y-1">
-              <Label>Data do reforço</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={cn('w-[160px] justify-start text-left font-normal', !reforcoData && 'text-muted-foreground')}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {reforcoData ? format(reforcoData, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecionar'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={reforcoData || undefined}
-                    onSelect={(d) => d && setReforcoData(d)}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+        <CardContent className="space-y-5">
+          {/* Lançamento manual */}
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Lançar manualmente</Label>
+            <div className="flex flex-wrap gap-3 items-end">
+              <div className="space-y-1">
+                <Label>Data do reforço</Label>
+                <DateInput value={reforcoData} onChange={setReforcoData} className="w-[210px]" />
+              </div>
+              <div className="space-y-1">
+                <Label>Valor (R$)</Label>
+                <Input
+                  type="text"
+                  placeholder="0,00"
+                  value={reforcoValor}
+                  onChange={(e) => setReforcoValor(e.target.value)}
+                  className="w-[140px] tabular-nums"
+                />
+              </div>
+              <Button size="sm" onClick={addReforco}>
+                <Plus className="w-4 h-4 mr-1" /> Adicionar
+              </Button>
             </div>
-            <div className="space-y-1">
-              <Label>Valor (R$)</Label>
-              <Input
-                type="text"
-                placeholder="0,00"
-                value={reforcoValor}
-                onChange={(e) => setReforcoValor(e.target.value)}
-                className="w-[140px] tabular-nums"
-              />
-            </div>
-            <Button size="sm" onClick={addReforco}>
-              <Plus className="w-4 h-4 mr-1" /> Adicionar
-            </Button>
           </div>
 
-          {reforcos.length > 0 && (
-            <div className="space-y-2">
-              {reforcos.map(r => (
-                <div key={r.id} className="flex items-center justify-between bg-muted/50 rounded px-3 py-2 text-sm">
-                  <div className="flex items-center gap-4">
-                    <span className="tabular-nums">{format(r.data, 'dd/MM/yyyy', { locale: ptBR })}</span>
-                    <span className="font-semibold tabular-nums">{formatCurrency(r.valor)}</span>
-                    {(() => {
-                      const dias = Math.max(0, Math.round((r.data.getTime() - dataRenegociacao.getTime()) / 86400000));
-                      const iMensal = taxaJuros / 100;
-                      const iDiaria = Math.pow(1 + iMensal, 1 / 30) - 1;
-                      const vp = (iMensal === 0 || dias === 0) ? r.valor : r.valor / Math.pow(1 + iDiaria, dias);
-                      return (
-                        <span className="text-muted-foreground text-xs">
-                          VP: {formatCurrency(vp)} ({dias}d)
-                        </span>
-                      );
-                    })()}
-                  </div>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeReforco(r.id)}>
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </div>
+          {/* Gerador automático */}
+          <div className="space-y-2 border-t pt-4">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Gerar automaticamente</Label>
+            <div className="flex flex-wrap gap-3 items-end">
+              <div className="space-y-1">
+                <Label>Periodicidade</Label>
+                <Select value={autoPeriod} onValueChange={(v) => setAutoPeriod(v as Periodicidade)}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="anual">Anual</SelectItem>
+                    <SelectItem value="semestral">Semestral</SelectItem>
+                    <SelectItem value="trimestral">Trimestral</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Valor de cada (R$)</Label>
+                <Input
+                  type="text"
+                  placeholder="0,00"
+                  value={autoValor}
+                  onChange={(e) => setAutoValor(e.target.value)}
+                  className="w-[140px] tabular-nums"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Quantidade</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="240"
+                  placeholder="Ex: 5"
+                  value={autoQtd}
+                  onChange={(e) => setAutoQtd(e.target.value)}
+                  className="w-[100px] tabular-nums"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Data do 1º reforço</Label>
+                <DateInput value={autoStart} onChange={setAutoStart} className="w-[210px]" />
+              </div>
+              <Button size="sm" variant="secondary" onClick={gerarReforcosAuto}>
+                <Sparkles className="w-4 h-4 mr-1" /> Gerar
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Gera 1 reforço por período a partir da data informada. Depois você pode editar a data/valor ou excluir cada um na lista abaixo.
+            </p>
+          </div>
+
+          {/* Lista editável */}
+          {reforcosOrdenados.length > 0 && (
+            <div className="space-y-2 border-t pt-4">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                {reforcosOrdenados.length} reforço(s) — clique para editar
+              </Label>
+              {reforcosOrdenados.map(r => (
+                <ReforcoRow
+                  key={r.id}
+                  reforco={r}
+                  dataRenegociacao={dataRenegociacao}
+                  taxaJuros={taxaJuros}
+                  onUpdate={updateReforco}
+                  onRemove={removeReforco}
+                />
               ))}
             </div>
           )}
@@ -389,6 +455,64 @@ export function Step3({
           Próximo <ArrowRight className="w-4 h-4" />
         </Button>
       </div>
+    </div>
+  );
+}
+
+interface ReforcoRowProps {
+  reforco: Reforco;
+  dataRenegociacao: Date;
+  taxaJuros: number;
+  onUpdate: (id: string, patch: Partial<Reforco>) => void;
+  onRemove: (id: string) => void;
+}
+
+function ReforcoRow({ reforco, dataRenegociacao, taxaJuros, onUpdate, onRemove }: ReforcoRowProps) {
+  const [valorText, setValorText] = useState(formatValorInput(reforco.valor));
+
+  // Sincroniza se o valor mudar por fora.
+  useEffect(() => {
+    setValorText(formatValorInput(reforco.valor));
+  }, [reforco.valor]);
+
+  const commitValor = () => {
+    const v = parseValor(valorText);
+    if (v && v > 0) {
+      onUpdate(reforco.id, { valor: v });
+    } else {
+      setValorText(formatValorInput(reforco.valor));
+    }
+  };
+
+  // VP do reforço descontado até a data da renegociação (igual à lógica do financial.ts)
+  const dias = Math.max(0, Math.round((reforco.data.getTime() - dataRenegociacao.getTime()) / 86400000));
+  const iMensal = taxaJuros / 100;
+  const iDiaria = Math.pow(1 + iMensal, 1 / 30) - 1;
+  const vp = (iMensal === 0 || dias === 0) ? reforco.valor : reforco.valor / Math.pow(1 + iDiaria, dias);
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 bg-muted/50 rounded px-3 py-2 text-sm">
+      <DateInput
+        value={reforco.data}
+        onChange={(d) => d && onUpdate(reforco.id, { data: d })}
+        className="w-[200px]"
+      />
+      <div className="flex items-center gap-1">
+        <span className="text-muted-foreground text-xs">R$</span>
+        <Input
+          type="text"
+          value={valorText}
+          onChange={(e) => setValorText(e.target.value)}
+          onBlur={commitValor}
+          className="w-[130px] h-9 tabular-nums"
+        />
+      </div>
+      <span className="text-muted-foreground text-xs">
+        VP: {formatCurrency(vp)} ({dias}d)
+      </span>
+      <Button variant="ghost" size="icon" className="h-7 w-7 ml-auto" onClick={() => onRemove(reforco.id)}>
+        <Trash2 className="w-4 h-4 text-destructive" />
+      </Button>
     </div>
   );
 }
