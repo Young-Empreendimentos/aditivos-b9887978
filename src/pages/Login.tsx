@@ -40,9 +40,9 @@ const Login = () => {
             </div>
             <div className="space-y-1.5">
               <h1 className="text-2xl sm:text-[1.6rem] font-semibold tracking-tight text-slate-900 leading-tight">
-                Gerador de Aditivos Contratuais
+                Recalcula
               </h1>
-              <p className="text-sm text-slate-500">Acesse com sua conta Google</p>
+              <p className="text-sm text-slate-500">Aditivos contratuais · Acesse com sua conta Google</p>
             </div>
           </div>
 

@@ -119,7 +119,7 @@ const GeradorAditivo = () => {
       <div className="max-w-6xl mx-auto px-4 py-8">
         <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight">Gerador de Aditivo Contratual</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Recalcula</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Reparcelamento de contrato de compra e venda de imóvel
             </p>
