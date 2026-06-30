@@ -1,9 +1,10 @@
 import { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { SemAcesso } from '@/components/SemAcesso';
 
 export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { user, role, loading } = useAuth();
 
   if (loading) {
     return (
@@ -14,5 +15,7 @@ export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   }
 
   if (!user) return <Navigate to="/login" replace />;
+  // Logado com e-mail Young, mas ainda não aprovado por um coordenador.
+  if (role === null) return <SemAcesso />;
   return <>{children}</>;
 };

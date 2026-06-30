@@ -135,8 +135,8 @@ const GeradorAditivo = () => {
                 </Avatar>
                 <div className="flex flex-col items-start leading-tight">
                   <span className="text-xs font-medium truncate max-w-[160px]">{user.displayName ?? user.email}</span>
-                  <Badge variant={ROLE_BADGE_VARIANT[role]} className="h-4 px-1.5 text-[10px]">
-                    {ROLE_LABELS[role]}
+                  <Badge variant={ROLE_BADGE_VARIANT[role ?? 'common']} className="h-4 px-1.5 text-[10px]">
+                    {role ? ROLE_LABELS[role] : ''}
                   </Badge>
                 </div>
               </div>

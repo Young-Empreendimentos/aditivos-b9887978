@@ -1,7 +1,7 @@
 import { useAuth, type Role } from '@/contexts/AuthContext';
 
 export interface Permissions {
-  role: Role;
+  role: Role | null;
   isAdmin: boolean;
   isCoordinator: boolean;
   isCommon: boolean;
@@ -13,7 +13,7 @@ export function usePermission(): Permissions {
     role,
     isAdmin: role === 'admin',
     isCoordinator: role === 'coordinator' || role === 'admin',
-    isCommon: true,
+    isCommon: role !== null,
   };
 }
 

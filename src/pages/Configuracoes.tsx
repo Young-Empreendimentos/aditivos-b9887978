@@ -486,7 +486,7 @@ export default function Configuracoes() {
               </p>
             </div>
           </div>
-          <Badge variant="outline" className="capitalize">{role}</Badge>
+          <Badge variant="outline" className="capitalize">{role ?? ''}</Badge>
         </header>
 
         {readOnly && (

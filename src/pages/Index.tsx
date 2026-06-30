@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FileText, Receipt, LogOut, SlidersHorizontal, ArrowRight, FileSignature, BadgeCheck, BookOpen } from 'lucide-react';
+import { FileText, Receipt, LogOut, SlidersHorizontal, ArrowRight, FileSignature, BadgeCheck, BookOpen, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -57,8 +57,8 @@ const Index = () => {
                 </Avatar>
                 <div className="flex flex-col items-start leading-tight">
                   <span className="text-xs font-medium">{user.displayName ?? user.email}</span>
-                  <Badge variant={ROLE_BADGE_VARIANT[role]} className="h-4 px-1.5 text-[10px]">
-                    {ROLE_LABELS[role]}
+                  <Badge variant={ROLE_BADGE_VARIANT[role ?? 'common']} className="h-4 px-1.5 text-[10px]">
+                    {role ? ROLE_LABELS[role] : ''}
                   </Badge>
                 </div>
               </div>
@@ -85,6 +85,13 @@ const Index = () => {
                     <Link to="/configuracoes/quitacao" className="cursor-pointer">
                       <BadgeCheck className="h-4 w-4" />
                       Quitação
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/usuarios" className="cursor-pointer">
+                      <Users className="h-4 w-4" />
+                      Usuários e acesso
                     </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>

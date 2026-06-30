@@ -653,7 +653,7 @@ export default function ConfiguracoesQuitacao() {
               </p>
             </div>
           </div>
-          <Badge variant="outline" className="capitalize">{role}</Badge>
+          <Badge variant="outline" className="capitalize">{role ?? ''}</Badge>
         </header>
 
         {!canEdit && (

@@ -13,6 +13,7 @@ import Configuracoes from "./pages/Configuracoes.tsx";
 import ConfiguracoesQuitacao from "./pages/ConfiguracoesQuitacao.tsx";
 import QuitacaoHistorico from "./pages/QuitacaoHistorico.tsx";
 import AditivoHistorico from "./pages/AditivoHistorico.tsx";
+import Usuarios from "./pages/Usuarios.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -79,6 +80,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <AditivoHistorico />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/usuarios"
+              element={
+                <ProtectedRoute>
+                  <Usuarios />
                 </ProtectedRoute>
               }
             />
