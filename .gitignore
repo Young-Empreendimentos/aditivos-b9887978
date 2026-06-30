@@ -17,6 +17,11 @@ dist
 dist-ssr
 *.local
 
+# Lockfiles do bun — o deploy (Railpack/Railway) usa npm via package-lock.json.
+# Mantê-los fora do repo evita o Railpack detectar bun e quebrar o build.
+bun.lock
+bun.lockb
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

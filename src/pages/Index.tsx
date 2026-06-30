@@ -102,7 +102,7 @@ const Index = () => {
         <header className="text-center mb-12">
           <Badge variant="outline" className="mb-4">Young Empreendimentos</Badge>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-br from-foreground to-foreground/60 bg-clip-text text-transparent">
-            Central de Documentos
+            Recalcula
           </h1>
           <p className="text-muted-foreground mt-3 max-w-xl mx-auto">
             Gere aditivos contratuais e termos de quitação a partir dos dados do contrato.
