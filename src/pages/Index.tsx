@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, Receipt, LogOut, SlidersHorizontal, ArrowRight, FileSignature, BadgeCheck, BookOpen, Users } from 'lucide-react';
+import { FileText, Receipt, LogOut, SlidersHorizontal, ArrowRight, FileSignature, BadgeCheck, BookOpen, Users, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermission, ROLE_LABELS } from '@/hooks/usePermission';
+import { listUsuarios } from '@/lib/usuarios';
 import { toast } from 'sonner';
 
 const ROLE_BADGE_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = {
@@ -25,6 +27,16 @@ const ROLE_BADGE_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = 
 const Index = () => {
   const { user, logout } = useAuth();
   const { role, isCoordinator } = usePermission();
+  const [pendentesCount, setPendentesCount] = useState(0);
+
+  useEffect(() => {
+    if (!isCoordinator) return;
+    let cancelled = false;
+    listUsuarios()
+      .then((us) => { if (!cancelled) setPendentesCount(us.filter((u) => u.status === 'pendente').length); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isCoordinator]);
 
   const handleLogout = async () => {
     try {
@@ -104,6 +116,25 @@ const Index = () => {
             </Button>
           </div>
         </div>
+
+        {isCoordinator && pendentesCount > 0 && (
+          <div className="mb-6 max-w-5xl mx-auto">
+            <Link
+              to="/usuarios"
+              className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900 transition-colors hover:bg-amber-100"
+            >
+              <Clock className="h-5 w-5 shrink-0 text-amber-600" />
+              <span className="text-sm font-medium flex-1">
+                {pendentesCount === 1
+                  ? '1 usuário aguardando aprovação'
+                  : `${pendentesCount} usuários aguardando aprovação`}
+              </span>
+              <span className="inline-flex items-center gap-1 text-sm font-semibold">
+                Revisar <ArrowRight className="h-4 w-4" />
+              </span>
+            </Link>
+          </div>
+        )}
 
         {/* Hero */}
         <header className="text-center mb-12">
