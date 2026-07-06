@@ -40,8 +40,19 @@ function isRole(r: unknown): r is Role {
  */
 async function fetchRole(email: string): Promise<Role | null> {
   const key = email.toLowerCase();
+  const ref = doc(db, ROLES_COLLECTION, key);
+
+  // Sementes são os donos fixos: o papel definido no código SEMPRE vale,
+  // mesmo que o registro no banco esteja diferente — e auto-corrige o registro.
+  if (SEED_ROLES[key]) {
+    const seeded = SEED_ROLES[key];
+    try {
+      await setDoc(ref, { email: key, role: seeded, status: 'aprovado', aprovadoPor: 'seed' }, { merge: true });
+    } catch { /* regras do Firestore podem bloquear a escrita */ }
+    return seeded;
+  }
+
   try {
-    const ref = doc(db, ROLES_COLLECTION, key);
     const snap = await getDoc(ref);
     if (snap.exists()) {
       const data = snap.data() as { role?: unknown; status?: string };
@@ -50,21 +61,13 @@ async function fetchRole(email: string): Promise<Role | null> {
       if (status === 'aprovado' && hasRole) return data.role as Role;
       return null;
     }
-    // Sem doc ainda
-    if (SEED_ROLES[key]) {
-      const seeded = SEED_ROLES[key];
-      try {
-        await setDoc(ref, { email: key, role: seeded, status: 'aprovado', aprovadoEm: new Date().toISOString(), aprovadoPor: 'seed' }, { merge: true });
-      } catch { /* regras do Firestore podem bloquear a escrita */ }
-      return seeded;
-    }
-    // Registra a solicitação pendente para aparecer na tela de Usuários
+    // Sem doc: registra a solicitação pendente para aparecer na tela de Usuários
     try {
       await setDoc(ref, { email: key, role: null, status: 'pendente', solicitadoEm: new Date().toISOString() }, { merge: true });
     } catch { /* regras do Firestore podem bloquear a escrita */ }
     return null;
   } catch {
-    return SEED_ROLES[key] ?? null;
+    return null;
   }
 }
 
