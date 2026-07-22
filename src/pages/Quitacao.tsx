@@ -32,6 +32,7 @@ import {
   listContratosByCliente,
   listParcelasByContrato,
   getDadosContrato,
+  getValorPago,
   extractUnitName,
   type EmpresaSienge,
   type ClienteSienge,
@@ -157,6 +158,8 @@ const Quitacao = () => {
       );
       // 2. Dados do contrato (valor total + empreendimento)
       const dadosContrato = await getDadosContrato(selectedContrato.bill_id);
+      // 2b. Valor já pago (principal, sem juros/multa) — via RPC, funciona em renegociados
+      const valorPago = await getValorPago(selectedContrato.bill_id);
 
       // 3. Config de taxa do empreendimento (Firestore quitacao_configuracoes)
       const nomeEmp =
@@ -234,7 +237,7 @@ const Quitacao = () => {
 
       // 8. Calcular
       const db = new Date(dataBase + 'T00:00:00');
-      const res = calcularQuitacao(parcelas, db, isRegistrado, valorTotalContrato, empCompat, dataContrato);
+      const res = calcularQuitacao(parcelas, db, isRegistrado, valorTotalContrato, valorPago, empCompat, dataContrato);
       setResultado(res);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Erro ao calcular');

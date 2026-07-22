@@ -126,6 +126,7 @@ export function calcularQuitacao(
   dataBase: Date,
   isRegistrado: boolean,
   valorTotalContrato: number,
+  valorPago: number,
   emp: Empreendimento,
   dataContrato?: Date | null,
 ): ResultadoQuitacao {
@@ -133,13 +134,13 @@ export function calcularQuitacao(
     throw new Error('A data base não pode ser posterior ao último dia do mês atual.');
   }
 
-  // % pago = (valor original do contrato − saldo corrigido em aberto) / valor original do contrato
-  // "Saldo corrigido" = com correção monetária (INCC/IGPM), mas SEM juros de atraso nem multa.
-  // Campo Sienge: corrected_balance_amount → valorCorrigido
-  const totalCorrigidoEmAberto = parcelas.reduce((s, p) => s + p.valorCorrigido, 0);
+  // % pago = valor já pago (principal, SEM juros/multa) ÷ valor total do contrato.
+  // valorPago vem da RPC get_valor_pago (soma dos recebimentos, exceto os tipos
+  // "Reparcelamento" e "Distrato"). Funciona também em contratos RENEGOCIADOS,
+  // onde o método antigo (valor total − saldo em aberto) falhava.
   const percentualPago =
     valorTotalContrato > 0
-      ? Math.max(0, Math.min(100, ((valorTotalContrato - totalCorrigidoEmAberto) / valorTotalContrato) * 100))
+      ? Math.max(0, Math.min(100, (valorPago / valorTotalContrato) * 100))
       : 0;
 
   const { taxa, taxaPercent, descricao } = buscarTaxa(emp, isRegistrado, percentualPago, dataContrato);
