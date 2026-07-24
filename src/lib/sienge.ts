@@ -358,10 +358,10 @@ export async function getCorrecaoMonetaria(billId: number | string): Promise<str
 
 /**
  * Valor total já pago pelo cliente no contrato (principal, SEM juros e multa).
- * Regra validada contra o relatório "Contas Recebidas" do Sienge: soma o valor
- * de todos os recebimentos, EXCETO os tipos "Reparcelamento" e "Distrato".
- * Adiantamento aplicado ao contrato já entra (aparece como "Substituição").
- * O cálculo roda no banco (RPC get_valor_pago) — não processa JSON no app.
+ * Regra (na RPC get_valor_pago): só documentos "CT"; soma o `value` dos recebimentos,
+ * EXCETO movimentos/estornos (Reparcelamento, Distrato, Cancelamento, Repactuação,
+ * Outros, "Abatimento de Adiantamento"). Adiantamento aplicado ao contrato já entra
+ * (aparece como "Substituição"). O cálculo roda no banco — não processa JSON no app.
  */
 export async function getValorPago(billId: number | string): Promise<number> {
   const { data, error } = await supabase.rpc("get_valor_pago", {
