@@ -15,11 +15,10 @@ const supabase = createClient(
 
 // Os objetos do Sienge migraram do schema `public` para o schema `sienge`.
 // Os nomes em `public` viraram apenas views de compatibilidade temporárias
-// (serão removidas), então lemos as tabelas/views do Sienge direto do schema `sienge`.
-// Somente leitura. Exceções que seguem no schema padrão (`supabase`):
-//  - a view `mv_empresas` (ainda em public por enquanto);
-//  - as RPCs (get_empreendimentos / get_dados_contrato / get_valor_pago …),
-//    que já leem o schema `sienge` por dentro.
+// (serão removidas), então lemos tabelas/views/matviews do Sienge direto do schema `sienge`
+// (inclui a matview `mv_empresas`). Somente leitura.
+// Exceção: as RPCs (get_empreendimentos / get_dados_contrato / get_valor_pago …) seguem no
+// client padrão `supabase` — elas resolvem o schema por dentro.
 const siengeDb = supabase.schema("sienge");
 
 export interface EmpresaSienge {
@@ -112,7 +111,7 @@ export async function listEmpreendimentosSienge(): Promise<string[]> {
 }
 
 export async function listEmpresas(): Promise<EmpresaSienge[]> {
-  const { data, error } = await supabase.from("mv_empresas").select("company_id, company_name").order("company_name");
+  const { data, error } = await siengeDb.from("mv_empresas").select("company_id, company_name").order("company_name");
   if (error) throw error;
   return (data ?? []).map((row: { company_id: number; company_name: string }) => ({
     company_id: String(row.company_id),
