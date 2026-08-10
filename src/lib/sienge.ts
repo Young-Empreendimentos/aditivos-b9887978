@@ -13,6 +13,15 @@ const supabase = createClient(
   },
 );
 
+// Os objetos do Sienge migraram do schema `public` para o schema `sienge`.
+// Os nomes em `public` viraram apenas views de compatibilidade temporárias
+// (serão removidas), então lemos as tabelas/views do Sienge direto do schema `sienge`.
+// Somente leitura. Exceções que seguem no schema padrão (`supabase`):
+//  - a view `mv_empresas` (ainda em public por enquanto);
+//  - as RPCs (get_empreendimentos / get_dados_contrato / get_valor_pago …),
+//    que já leem o schema `sienge` por dentro.
+const siengeDb = supabase.schema("sienge");
+
 export interface EmpresaSienge {
   company_id: string;
   company_name: string;
@@ -113,7 +122,7 @@ export async function listEmpresas(): Promise<EmpresaSienge[]> {
 
 export async function searchClientes(term: string, companyId?: string): Promise<ClienteSienge[]> {
   if (term.trim().length < 3) return [];
-  let query = supabase
+  let query = siengeDb
     .from("sienge_parcelas_receber")
     .select("client_id, client_name")
     .ilike("client_name", `%${term.trim()}%`)
@@ -132,7 +141,7 @@ export async function searchClientes(term: string, companyId?: string): Promise<
 }
 
 export async function listContratosByCliente(clientId: string, companyId?: string): Promise<ContratoSienge[]> {
-  let query = supabase
+  let query = siengeDb
     .from("sienge_parcelas_receber")
     .select(
       "bill_id, bill_document, client_id, client_name, company_id, company_name, business_area_name, cost_center_name, main_unit, issue_date, bill_private_area, raw_data",
@@ -174,7 +183,7 @@ export async function listContratosByCliente(clientId: string, companyId?: strin
 }
 
 export async function listParcelasByContrato(billId: string, billDocument: string): Promise<SiengeParcelaRow[]> {
-  let query = supabase
+  let query = siengeDb
     .from("sienge_parcelas_receber")
     .select("*")
     .eq("bill_id", billId)
@@ -260,7 +269,7 @@ export async function getDadosContrato(billId: number | string): Promise<DadosCo
 
   if (error) console.warn("[getDadosContrato] RPC sem retorno, usando fallback de parcelas:", error);
 
-  const { data: rows, error: rowError } = await supabase
+  const { data: rows, error: rowError } = await siengeDb
     .from("sienge_parcelas_receber")
     .select("*")
     .eq("bill_id", typeof billId === "string" ? Number(billId) : billId)
@@ -333,7 +342,7 @@ export async function getDadosContrato(billId: number | string): Promise<DadosCo
  * Prioriza a condição "Parcelas Mensais"; se não existir, pega a primeira não-REAL.
  */
 export async function getCorrecaoMonetaria(billId: number | string): Promise<string> {
-  const { data, error } = await supabase
+  const { data, error } = await siengeDb
     .from("sienge_contratos_de_vendas")
     .select("raw_data")
     .eq("receivable_bill_id", typeof billId === "string" ? Number(billId) : billId)
