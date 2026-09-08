@@ -1,25 +1,37 @@
-import { createClient } from "@supabase/supabase-js";
+import { auth } from "@/lib/firebase";
 
-const supabase = createClient(
-  "https://vvtympzatclvjaqucebr.supabase.co",
-  "REMOVIDO_CHAVE_ANON",
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-      storageKey: 'sienge-readonly-client',
-    },
-  },
-);
+// Todo acesso ao Sienge passa pela Edge Function `sienge-proxy` (porteiro no servidor):
+// ela valida o login do Firebase (token do usuário) e lê o Sienge com a service role,
+// que fica SÓ no servidor. Assim não há nenhuma chave do Supabase no navegador e o
+// acesso `anon` continua fechado. Somente LEITURA.
+const PROXY_URL = "https://vvtympzatclvjaqucebr.supabase.co/functions/v1/sienge-proxy";
 
-// Os objetos do Sienge migraram do schema `public` para o schema `sienge`.
-// Os nomes em `public` viraram apenas views de compatibilidade temporárias
-// (serão removidas), então lemos tabelas/views/matviews do Sienge direto do schema `sienge`
-// (inclui a matview `mv_empresas`). Somente leitura.
-// Exceção: as RPCs (get_empreendimentos / get_dados_contrato / get_valor_pago …) seguem no
-// client padrão `supabase` — elas resolvem o schema por dentro.
-const siengeDb = supabase.schema("sienge");
+async function proxy<T = unknown>(
+  action: string,
+  params: Record<string, unknown> = {},
+): Promise<{ data: T | null; error: { message: string } | null }> {
+  let token: string | undefined;
+  try {
+    token = await auth.currentUser?.getIdToken();
+  } catch {
+    token = undefined;
+  }
+  if (!token) return { data: null, error: { message: "Sessão expirada. Entre novamente." } };
+  try {
+    const res = await fetch(PROXY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-firebase-token": token },
+      body: JSON.stringify({ action, params }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { data?: T; error?: string | null };
+    if (!res.ok) {
+      return { data: null, error: { message: json?.error ?? `Erro ${res.status}` } };
+    }
+    return { data: (json.data ?? null) as T | null, error: json.error ? { message: json.error } : null };
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Falha de rede" } };
+  }
+}
 
 export interface EmpresaSienge {
   company_id: string;
@@ -96,24 +108,23 @@ function getBillDocument(row: Partial<SiengeParcelaRow>): string {
   return row.bill_document ?? row.document_number ?? row.raw_data?.bill?.document ?? '';
 }
 
-/** Retorna todos os empreendimentos distintos via RPC SECURITY DEFINER
- *  (bypassa RLS da tabela sienge_contratos_de_vendas) */
+/** Retorna todos os empreendimentos distintos (RPC get_empreendimentos, via proxy). */
 export async function listEmpreendimentosSienge(): Promise<string[]> {
-  const { data, error } = await supabase.rpc('get_empreendimentos');
+  const { data, error } = await proxy<{ enterprise_name: string | null }[]>("empreendimentos");
   if (error) {
-    console.error('[listEmpreendimentosSienge] Supabase RPC error:', error);
+    console.error('[listEmpreendimentosSienge]', error);
     throw new Error(error.message ?? 'Erro ao consultar empreendimentos no Supabase');
   }
   return (data ?? [])
-    .map((row: { enterprise_name: string | null }) => row.enterprise_name?.trim() ?? '')
+    .map((row) => row.enterprise_name?.trim() ?? '')
     .filter(Boolean)
     .sort((a: string, b: string) => a.localeCompare(b, 'pt-BR'));
 }
 
 export async function listEmpresas(): Promise<EmpresaSienge[]> {
-  const { data, error } = await siengeDb.from("mv_empresas").select("company_id, company_name").order("company_name");
-  if (error) throw error;
-  return (data ?? []).map((row: { company_id: number; company_name: string }) => ({
+  const { data, error } = await proxy<{ company_id: number; company_name: string }[]>("empresas");
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => ({
     company_id: String(row.company_id),
     company_name: row.company_name,
   }));
@@ -121,15 +132,11 @@ export async function listEmpresas(): Promise<EmpresaSienge[]> {
 
 export async function searchClientes(term: string, companyId?: string): Promise<ClienteSienge[]> {
   if (term.trim().length < 3) return [];
-  let query = siengeDb
-    .from("sienge_parcelas_receber")
-    .select("client_id, client_name")
-    .ilike("client_name", `%${term.trim()}%`)
-    .or("current_balance.gt.0,current_balance_with_addition.gt.0")
-    .limit(500);
-  if (companyId) query = query.eq("company_id", companyId);
-  const { data, error } = await query;
-  if (error) throw error;
+  const { data, error } = await proxy<Array<{ client_id: string | number; client_name: string }>>(
+    "searchClientes",
+    { term: term.trim(), companyId },
+  );
+  if (error) throw new Error(error.message);
   const map = new Map<string, ClienteSienge>();
   for (const row of data ?? []) {
     if (!row.client_id || !row.client_name) continue;
@@ -140,18 +147,10 @@ export async function searchClientes(term: string, companyId?: string): Promise<
 }
 
 export async function listContratosByCliente(clientId: string, companyId?: string): Promise<ContratoSienge[]> {
-  let query = siengeDb
-    .from("sienge_parcelas_receber")
-    .select(
-      "bill_id, bill_document, client_id, client_name, company_id, company_name, business_area_name, cost_center_name, main_unit, issue_date, bill_private_area, raw_data",
-    )
-    .eq("client_id", clientId)
-    .ilike("bill_document", "CT.%")
-    .or("current_balance.gt.0,current_balance_with_addition.gt.0")
-    .limit(5000);
-  if (companyId) query = query.eq("company_id", companyId);
-  const { data, error } = await query;
-  if (error) throw error;
+  const { data, error } = await proxy<
+    Array<SiengeParcelaRow & { client_id?: string | number; company_id?: string | number; issue_date?: string | null }>
+  >("contratos", { clientId, companyId });
+  if (error) throw new Error(error.message);
   const map = new Map<string, ContratoSienge>();
   for (const row of data ?? []) {
     if (!row.bill_id) continue;
@@ -163,7 +162,7 @@ export async function listContratosByCliente(clientId: string, companyId?: strin
       map.set(key, {
         bill_id: String(row.bill_id),
         bill_document: row.bill_document ?? "",
-        client_id: String(row.client_id),
+        client_id: String(row.client_id ?? ""),
         client_name: row.client_name ?? "",
         company_id: String(row.company_id ?? ""),
         company_name: row.company_name ?? "",
@@ -182,16 +181,8 @@ export async function listContratosByCliente(clientId: string, companyId?: strin
 }
 
 export async function listParcelasByContrato(billId: string, billDocument: string): Promise<SiengeParcelaRow[]> {
-  let query = siengeDb
-    .from("sienge_parcelas_receber")
-    .select("*")
-    .eq("bill_id", billId)
-    .or("current_balance.gt.0,current_balance_with_addition.gt.0")
-    .order("due_date", { ascending: true })
-    .limit(5000);
-  if (billDocument) query = query.eq("bill_document", billDocument);
-  const { data, error } = await query;
-  if (error) throw error;
+  const { data, error } = await proxy<SiengeParcelaRow[]>("parcelas", { billId, billDocument });
+  if (error) throw new Error(error.message);
 
   // Normalização dos dados:
   // 1. due_date: "YYYY-MM-DD" é interpretado como UTC pelo JS (new Date("YYYY-MM-DD")),
@@ -261,19 +252,12 @@ export interface DadosContrato {
 }
 
 export async function getDadosContrato(billId: number | string): Promise<DadosContrato | null> {
-  const { data, error } = await supabase.rpc("get_dados_contrato", {
-    p_bill_id: typeof billId === "string" ? Number(billId) : billId,
-  });
+  const { data, error } = await proxy<DadosContrato>("dadosContratoRpc", { billId });
   if (!error && data) return data as DadosContrato;
 
   if (error) console.warn("[getDadosContrato] RPC sem retorno, usando fallback de parcelas:", error);
 
-  const { data: rows, error: rowError } = await siengeDb
-    .from("sienge_parcelas_receber")
-    .select("*")
-    .eq("bill_id", typeof billId === "string" ? Number(billId) : billId)
-    .order("due_date", { ascending: true })
-    .limit(5000);
+  const { data: rows, error: rowError } = await proxy<SiengeParcelaRow[]>("parcelasByBill", { billId });
 
   if (rowError) {
     console.error("Erro ao buscar dados do contrato:", rowError);
@@ -341,12 +325,7 @@ export async function getDadosContrato(billId: number | string): Promise<DadosCo
  * Prioriza a condição "Parcelas Mensais"; se não existir, pega a primeira não-REAL.
  */
 export async function getCorrecaoMonetaria(billId: number | string): Promise<string> {
-  const { data, error } = await siengeDb
-    .from("sienge_contratos_de_vendas")
-    .select("raw_data")
-    .eq("receivable_bill_id", typeof billId === "string" ? Number(billId) : billId)
-    .limit(1)
-    .maybeSingle();
+  const { data, error } = await proxy<{ raw_data: unknown } | null>("correcaoMonetaria", { billId });
 
   if (error || !data?.raw_data) return "";
 
@@ -369,12 +348,10 @@ export async function getCorrecaoMonetaria(billId: number | string): Promise<str
  * Regra (na RPC get_valor_pago): só documentos "CT"; soma o `value` dos recebimentos,
  * EXCETO movimentos/estornos (Reparcelamento, Distrato, Cancelamento, Repactuação,
  * Outros, "Abatimento de Adiantamento"). Adiantamento aplicado ao contrato já entra
- * (aparece como "Substituição"). O cálculo roda no banco — não processa JSON no app.
+ * (aparece como "Substituição"). Roda no banco, via proxy — nada de JSON no app.
  */
 export async function getValorPago(billId: number | string): Promise<number> {
-  const { data, error } = await supabase.rpc("get_valor_pago", {
-    p_bill_id: typeof billId === "string" ? Number(billId) : billId,
-  });
+  const { data, error } = await proxy<number>("valorPago", { billId });
   if (error) {
     console.warn("[getValorPago] erro na RPC:", error);
     return 0;
