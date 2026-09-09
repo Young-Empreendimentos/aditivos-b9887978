@@ -42,7 +42,7 @@ type Props = {
   poll?: (sinceId: number | null) => Promise<{ latestId: number; novas: VendaCelebracao[] }>;
   /** Intervalo do poll em ms (só no modo poll). Padrão 12000. */
   intervaloMs?: number;
-  /** Quantos segundos o cartão fica na tela. Padrão 3 (mesma duração da fanfarra). */
+  /** Quantos segundos o cartão fica na tela. Padrão 10 (decisão Elen 2026-09-09). */
   duracaoSegundos?: number;
   /** Nome do sistema, só p/ o rótulo do cartão. */
   sistema?: string;
@@ -50,6 +50,8 @@ type Props = {
   somUrl?: string;
   /** Volume do arquivo de áudio, 0 a 1. Padrão 1. */
   volume?: number;
+  /** Quantas vezes o arquivo de áudio toca em sequência. Padrão 2. */
+  repeticoesSom?: number;
 };
 
 const MUTE_KEY = "celebracao_venda_mudo";
@@ -170,11 +172,13 @@ function tocarFanfarra() {
 }
 
 // Toca o arquivo de áudio se houver; senão, o som sintetizado.
-function tocarSom(somUrl?: string, volume = 1) {
+function tocarSom(somUrl?: string, volume = 1, repeticoes = 2) {
   if (!somUrl) return tocarFanfarra();
   try {
     const a = new Audio(somUrl);
     a.volume = Math.max(0, Math.min(1, volume));
+    let restantes = Math.max(1, repeticoes) - 1;
+    a.addEventListener("ended", () => { if (restantes-- > 0) { a.currentTime = 0; a.play().catch(() => {}); } });
     a.play().catch(() => tocarFanfarra());
   } catch {
     tocarFanfarra();
@@ -254,7 +258,7 @@ function reivindicarSom(id: number) {
 }
 
 // ---------- Componente ----------
-export default function CelebracaoVenda({ supabase, url, anonKey, poll, intervaloMs = 12000, duracaoSegundos = 3, sistema, somUrl, volume = 1 }: Props) {
+export default function CelebracaoVenda({ supabase, url, anonKey, poll, intervaloMs = 12000, duracaoSegundos = 10, sistema, somUrl, volume = 1, repeticoesSom = 2 }: Props) {
   const [venda, setVenda] = useState<VendaCelebracao | null>(null);
   const [mudo, setMudo] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -323,7 +327,7 @@ export default function CelebracaoVenda({ supabase, url, anonKey, poll, interval
     if (!v) return;
     mostrando.current = true;
     setVenda(v);
-    if (!lerMudo() && reivindicarSom(v.id)) tocarSom(somUrl, volume);
+    if (!lerMudo() && reivindicarSom(v.id)) tocarSom(somUrl, volume, repeticoesSom);
     requestAnimationFrame(() => {
       if (canvasRef.current) pararConfete.current = soltarConfete(canvasRef.current, duracaoSegundos * 1000 - 1500);
     });
