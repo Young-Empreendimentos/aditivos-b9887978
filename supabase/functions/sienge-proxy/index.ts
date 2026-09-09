@@ -153,6 +153,20 @@ Deno.serve(async (req: Request) => {
         const { data, error } = await admin.rpc("get_valor_pago", { p_bill_id: toNum(p.billId) });
         return json({ data, error: error?.message ?? null });
       }
+      case "celebracoes": {
+        // Celebração de venda: lê public.vendas_celebracao com a service role (ignora RLS).
+        const sinceId = typeof p.sinceId === "number" ? p.sinceId : null;
+        const { data: maxRow } = await admin
+          .from("vendas_celebracao").select("id").order("id", { ascending: false }).limit(1).maybeSingle();
+        const latestId = (maxRow?.id as number) ?? 0;
+        let novas: unknown[] = [];
+        if (sinceId != null && latestId > sinceId) {
+          const { data } = await admin
+            .from("vendas_celebracao").select("*").gt("id", sinceId).order("id", { ascending: true }).limit(10);
+          novas = data ?? [];
+        }
+        return json({ data: { latestId, novas }, error: null });
+      }
       default:
         return json({ error: `Ação desconhecida: ${action}` }, 400);
     }

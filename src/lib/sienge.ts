@@ -358,3 +358,16 @@ export async function getValorPago(billId: number | string): Promise<number> {
   }
   return Number(data ?? 0);
 }
+
+/**
+ * Celebração de venda (confete + som quando alguém marca venda no CRM).
+ * Em vez de Realtime com chave anon, consulta a Edge Function (token do Firebase,
+ * service role no servidor) por vendas novas desde `sinceId`. Sem chave no front.
+ * Retorna o maior id atual (base) e as vendas com id maior que `sinceId`.
+ */
+export async function getCelebracoes(
+  sinceId: number | null,
+): Promise<{ latestId: number; novas: any[] }> {
+  const { data } = await proxy<{ latestId: number; novas: any[] }>("celebracoes", { sinceId });
+  return data ?? { latestId: 0, novas: [] };
+}
