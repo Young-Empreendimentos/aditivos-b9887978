@@ -39,7 +39,7 @@ type Props = {
   anonKey?: string;
   /** Modo SEM chave no front: função que consulta vendas novas (ex.: Edge Function
    *  autenticada). Quando passada, é usada no lugar do Realtime/anon. */
-  poll?: (sinceId: number | null) => Promise<{ latestId: number; novas: VendaCelebracao[] }>;
+  poll?: (sinceId: number | null) => Promise<{ latestId: number; novas: VendaCelebracao[] } | null>;
   /** Intervalo do poll em ms (só no modo poll). Padrão 12000. */
   intervaloMs?: number;
   /** Quantos segundos o cartão fica na tela. Padrão 10 (decisão Elen 2026-09-09). */
@@ -283,23 +283,30 @@ export default function CelebracaoVenda({ supabase, url, anonKey, poll, interval
     if (poll) {
       let ativo = true;
       let lastSeen: number | null = null;
+      let timer: ReturnType<typeof setTimeout>;
       const tick = async () => {
         try {
-          const { latestId, novas } = await poll(lastSeen);
-          if (!ativo) return;
-          if (lastSeen === null) {
-            lastSeen = latestId; // baseline: não celebra vendas que já existiam ao abrir
-          } else {
-            for (const v of novas) emitir(v);
-            if (latestId > lastSeen) lastSeen = latestId;
+          const res = await poll(lastSeen);
+          // res === null → a consulta falhou (ex.: token do Firebase ainda carregando).
+          // NÃO fixar a base com valor falso: senão o poll seguinte traria TODO o histórico.
+          if (ativo && res) {
+            const { latestId, novas } = res;
+            if (lastSeen === null) {
+              lastSeen = latestId; // base = maior id atual (só de uma consulta que deu certo);
+                                   // vendas que já existiam ao abrir NÃO são celebradas
+            } else {
+              for (const v of novas) emitir(v);
+              if (latestId > lastSeen) lastSeen = latestId;
+            }
           }
         } catch {
           /* silencioso: a celebração não é crítica */
         }
+        // Enquanto a base não veio (token carregando), retenta rápido; depois, no intervalo normal.
+        if (ativo) timer = setTimeout(tick, lastSeen === null ? 3000 : intervaloMs);
       };
       tick();
-      const iv = setInterval(tick, intervaloMs);
-      return () => { ativo = false; clearInterval(iv); };
+      return () => { ativo = false; clearTimeout(timer); };
     }
 
     // --- Modo Realtime (com Supabase/anon) ---
