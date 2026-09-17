@@ -172,13 +172,15 @@ function tocarFanfarra() {
 }
 
 // Toca o arquivo de áudio se houver; senão, o som sintetizado.
-function tocarSom(somUrl?: string, volume = 1, repeticoes = 2) {
-  if (!somUrl) return tocarFanfarra();
+function tocarSom(somUrl?: string, volume = 1, repeticoes = 2, audioEl?: HTMLAudioElement | null) {
+  if (!somUrl && !audioEl) return tocarFanfarra();
   try {
-    const a = new Audio(somUrl);
+    const a = audioEl ?? new Audio(somUrl); // reusa o elemento pré-carregado quando houver
     a.volume = Math.max(0, Math.min(1, volume));
     let restantes = Math.max(1, repeticoes) - 1;
-    a.addEventListener("ended", () => { if (restantes-- > 0) { a.currentTime = 0; a.play().catch(() => {}); } });
+    // onended (não addEventListener): ao reusar o mesmo elemento, não empilha handlers.
+    a.onended = () => { if (restantes-- > 0) { a.currentTime = 0; a.play().catch(() => {}); } };
+    a.currentTime = 0;
     a.play().catch(() => tocarFanfarra());
   } catch {
     tocarFanfarra();
@@ -266,8 +268,32 @@ export default function CelebracaoVenda({ supabase, url, anonKey, poll, interval
   const mostrando = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pararConfete = useRef<() => void>(() => {});
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => { setMudo(lerMudo()); return armarDesbloqueio(); }, []);
+
+  // Pré-carrega e destrava o arquivo de som pra ele sair NA HORA do confete
+  // (antes o mp3 era baixado/decodificado no momento do toque → atraso).
+  useEffect(() => {
+    if (!somUrl) { audioRef.current = null; return; }
+    const a = new Audio(somUrl);
+    a.preload = "auto";
+    try { a.load(); } catch { /* ignora */ }
+    audioRef.current = a;
+    // Política de autoplay: no 1º gesto do usuário, toca mudo e pausa (destrava o elemento).
+    const evs = ["pointerdown", "keydown", "touchstart"] as const;
+    const unlock = () => {
+      const el = audioRef.current;
+      if (el) {
+        const prev = el.muted;
+        el.muted = true;
+        el.play().then(() => { el.pause(); el.currentTime = 0; el.muted = prev; }).catch(() => { el.muted = prev; });
+      }
+      evs.forEach((e) => window.removeEventListener(e, unlock));
+    };
+    evs.forEach((e) => window.addEventListener(e, unlock, { passive: true }));
+    return () => { evs.forEach((e) => window.removeEventListener(e, unlock)); audioRef.current = null; };
+  }, [somUrl]);
 
   // Fonte dos eventos: modo `poll` (sem chave no front) OU Realtime (com Supabase/anon).
   useEffect(() => {
@@ -334,7 +360,7 @@ export default function CelebracaoVenda({ supabase, url, anonKey, poll, interval
     if (!v) return;
     mostrando.current = true;
     setVenda(v);
-    if (!lerMudo() && reivindicarSom(v.id)) tocarSom(somUrl, volume, repeticoesSom);
+    if (!lerMudo() && reivindicarSom(v.id)) tocarSom(somUrl, volume, repeticoesSom, audioRef.current);
     requestAnimationFrame(() => {
       if (canvasRef.current) pararConfete.current = soltarConfete(canvasRef.current, duracaoSegundos * 1000 - 1500);
     });
