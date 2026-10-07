@@ -81,6 +81,37 @@ function buildQuadro2Xml(parcelas: NovaParcela[]): string {
   return buildTblXml(`${headerRow}${dataRows.join('')}${totalRow}`);
 }
 
+/**
+ * Garante grade PRETA de 1pt em TODAS as células dos quadros (Quadro 1 e 2),
+ * independente de como a borda veio no template. Alguns modelos vinham sem
+ * <w:tblBorders> (grade da tabela) ou com célula só em cima/baixo, e aí o quadro
+ * saía sem o risco fechado. Aqui removemos qualquer borda definida por célula e
+ * aplicamos um <w:tblBorders> forte e uniforme — vale para loop nativo
+ * ({{#quadro2}}) e para as tabelas montadas na 2ª passagem.
+ */
+function reforcarBordasQuadros(docXml: string): string {
+  const SZ = 8; // w:sz é em 1/8 de ponto → 8 = 1pt
+  const lados = (nomes: string[]) =>
+    nomes
+      .map((s) => `<w:${s} w:val="single" w:sz="${SZ}" w:space="0" w:color="000000"/>`)
+      .join('');
+  const tblBorders = `<w:tblBorders>${lados(['top', 'left', 'bottom', 'right', 'insideH', 'insideV'])}</w:tblBorders>`;
+  return docXml.replace(/<w:tbl>[\s\S]*?<\/w:tbl>/g, (tbl) => {
+    const texto = tbl.replace(/<[^>]+>/g, '');
+    if (!/Parcela|Total:/i.test(texto)) return tbl; // só as tabelas de quadro
+    // remove overrides de borda por célula → a grade da tabela manda (uniforme)
+    let t = tbl.replace(/<w:tcBorders>[\s\S]*?<\/w:tcBorders>/g, '');
+    if (/<w:tblBorders>/.test(t)) {
+      t = t.replace(/<w:tblBorders>[\s\S]*?<\/w:tblBorders>/, tblBorders);
+    } else if (/<w:tblLayout\b/.test(t)) {
+      t = t.replace('<w:tblLayout', `${tblBorders}<w:tblLayout`);
+    } else {
+      t = t.replace('</w:tblPr>', `${tblBorders}</w:tblPr>`);
+    }
+    return t;
+  });
+}
+
 export async function generateDocx(
   templateFile: File,
   selectedParcelas: Parcela[],
@@ -216,6 +247,9 @@ export async function generateDocx(
       return /^quadro\s*\d+$/.test(txt) ? para + space + tableXml : match;
     }
   );
+
+  // Grade preta de 1pt em todas as células dos quadros (uniforme, independe do template)
+  docXml = reforcarBordasQuadros(docXml);
 
   processedZip.file('word/document.xml', docXml);
 
