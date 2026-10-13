@@ -134,6 +134,7 @@ export function Step3({
     items.sort((a, b) => a.numero - b.numero);
 
     // Agrupar parcelas na mesma data em uma única parcela
+    // (o cliente paga UM boleto por vencimento = a soma do que cai no dia)
     const merged: NovaParcela[] = [];
     for (const item of items) {
       const dateKey = item.dataVencimento.getTime();
@@ -147,15 +148,26 @@ export function Step3({
       }
     }
 
-    // Aplicar numeração manual ou automática
+    // Ordenar o quadro final por data (cronológico)
+    merged.sort((a, b) => a.dataVencimento.getTime() - b.dataVencimento.getTime());
+
+    // Numeração: segue o número REAL da parcela (como no Quadro 1), consecutivo.
+    // Começa no número da 1ª parcela a vencer do contrato (ex.: 27, 28, 29…) e NÃO
+    // recomeça do 1. Como junta o mesmo vencimento, sai com menos linhas (= menos parcelas).
+    const aVencer = parcelas.filter(p => p.saldoAtual > 0 && !p.isEntrada);
+    const baseNumero = aVencer.length > 0
+      ? Math.min(...aVencer.map(p => (p.numero > 0 ? p.numero : Number.POSITIVE_INFINITY)))
+      : 1;
+    const inicio = Number.isFinite(baseNumero) ? baseNumero : 1;
+
     if (manualNumeros && manualNumeros.length === merged.length) {
       merged.forEach((item, idx) => { item.numero = manualNumeros[idx]; });
     } else {
-      merged.forEach((item, idx) => { item.numero = idx + 1; });
+      merged.forEach((item, idx) => { item.numero = inicio + idx; });
     }
 
     return merged;
-  }, [parcelasMantidas, reforcos, novasParcelasPMT, manualNumeros]);
+  }, [parcelas, parcelasMantidas, reforcos, novasParcelasPMT, manualNumeros]);
 
   const totalRenegociado = quadro2Completo.reduce((s, p) => s + p.valor, 0);
   const totalJuros = totalRenegociado - pvBruto;
