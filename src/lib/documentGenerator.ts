@@ -97,16 +97,24 @@ function reforcarBordasQuadros(docXml: string): string {
       .join('');
   const tblBorders = `<w:tblBorders>${lados(['top', 'left', 'bottom', 'right', 'insideH', 'insideV'])}</w:tblBorders>`;
   return docXml.replace(/<w:tbl>[\s\S]*?<\/w:tbl>/g, (tbl) => {
-    const texto = tbl.replace(/<[^>]+>/g, '');
-    if (!/Parcela|Total:/i.test(texto)) return tbl; // só as tabelas de quadro
+    const texto = tbl.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    // Pega só os quadros de parcelas: o cabeçalho (as 3 colunas Parcela+Vencimento+Valor)
+    // OU a tabelinha de "Total" (curta). Uma tabela de cláusulas que cite "parcela" não
+    // tem as 3 colunas e, se tiver "Total:", é texto longo → fica de fora.
+    const ehHeaderQuadro = /Parcela/i.test(texto) && /Vencimento/i.test(texto) && /Valor/i.test(texto);
+    const ehTotal = /Total:/i.test(texto) && texto.length < 120;
+    if (!ehHeaderQuadro && !ehTotal) return tbl;
     // remove overrides de borda por célula → a grade da tabela manda (uniforme)
     let t = tbl.replace(/<w:tcBorders>[\s\S]*?<\/w:tcBorders>/g, '');
     if (/<w:tblBorders>/.test(t)) {
       t = t.replace(/<w:tblBorders>[\s\S]*?<\/w:tblBorders>/, tblBorders);
-    } else if (/<w:tblLayout\b/.test(t)) {
-      t = t.replace('<w:tblLayout', `${tblBorders}<w:tblLayout`);
     } else {
-      t = t.replace('</w:tblPr>', `${tblBorders}</w:tblPr>`);
+      // Insere o <w:tblBorders> na posição exigida pelo schema do Word
+      // (depois de tblW/jc/tblInd e ANTES de shd/tblLayout/tblCellMar/tblLook).
+      // Pôr fora de ordem faz o Word pedir "reparar".
+      const ancora = ['<w:shd', '<w:tblLayout', '<w:tblCellMar', '<w:tblLook'].find((a) => t.includes(a));
+      if (ancora) t = t.replace(ancora, `${tblBorders}${ancora}`);
+      else if (t.includes('</w:tblPr>')) t = t.replace('</w:tblPr>', `${tblBorders}</w:tblPr>`);
     }
     return t;
   });

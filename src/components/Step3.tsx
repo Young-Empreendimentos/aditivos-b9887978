@@ -23,9 +23,17 @@ const MESES_POR_PERIODO: Record<Periodicidade, number> = {
   trimestral: 3,
 };
 
-/** Converte texto "1.500,00" → 1500 */
+/** Converte texto de valor para número, aceitando vírgula OU ponto decimal.
+ *  "1.500,00" → 1500  |  "1500,50" → 1500.5  |  "1500.50" → 1500.5  |  "1.500" → 1500 */
 function parseValor(s: string): number {
-  return parseFloat(s.replace(/\./g, '').replace(',', '.'));
+  const t = (s ?? '').trim();
+  if (!t) return 0;
+  // Formato BR: vírgula = decimal, ponto = milhar
+  if (t.includes(',')) return parseFloat(t.replace(/\./g, '').replace(',', '.')) || 0;
+  // Sem vírgula: ponto separando milhar (grupos de 3) → remove os pontos
+  if (/^\d{1,3}(\.\d{3})+$/.test(t)) return parseFloat(t.replace(/\./g, '')) || 0;
+  // Senão o ponto é decimal (ex.: 1500.50) ou não há ponto
+  return parseFloat(t) || 0;
 }
 
 /** Número → "1.500,00" para edição em input */
@@ -170,7 +178,10 @@ export function Step3({
   }, [parcelas, parcelasMantidas, reforcos, novasParcelasPMT, manualNumeros]);
 
   const totalRenegociado = quadro2Completo.reduce((s, p) => s + p.valor, 0);
-  const totalJuros = totalRenegociado - pvBruto;
+  // Juros = só o que o refinanciamento (parcelas PMT) adiciona sobre o valor financiado.
+  // Parcelas "mantidas" e reforços NÃO geram juros novos (antes entravam aqui e inflavam o total).
+  const totalPMT = novasParcelasPMT.reduce((s, p) => s + p.valor, 0);
+  const totalJuros = Math.max(0, totalPMT - pvTotal);
 
   const addReforco = () => {
     if (!reforcoData) { toast.error('Informe a data do reforço'); return; }

@@ -208,7 +208,16 @@ const Quitacao = () => {
         const [y, m, d] = s.split('T')[0].split('-').map(Number);
         return new Date(y, m - 1, d);
       };
-      const parcelas = rows.map((p) => ({
+      // Pula parcelas sem data de vencimento válida (vêm assim do Sienge em alguns
+      // contratos): entravam como "Invalid Date" e (a) corrompiam o cálculo com NaN e
+      // (b) quebravam a tela ao formatar a data. Melhor ignorar e avisar.
+      const rowsValidas = rows.filter((p) => !isNaN(parseDateLocal(p.due_date).getTime()));
+      if (rowsValidas.length < rows.length) {
+        toast.warning(
+          `${rows.length - rowsValidas.length} parcela(s) sem data de vencimento foram ignoradas no cálculo.`
+        );
+      }
+      const parcelas = rowsValidas.map((p) => ({
         numero: parseInstallmentNumber(p.installment_number),
         dataVencimento: parseDateLocal(p.due_date),
         // valorAtual: saldo completo com juros e acréscimos (usado no cálculo VP)

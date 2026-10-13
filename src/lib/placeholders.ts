@@ -65,11 +65,15 @@ export function valorPorExtenso(n: number): string {
     if (milhoes) parts.push(milhoes === 1 ? 'um milhão' : `${centena(milhoes)} milhões`);
     if (mil) parts.push(mil === 1 ? 'mil' : `${centena(mil)} mil`);
     if (resto) parts.push(centena(resto));
-    // Regra de pontuação: vírgula antes de centenas completas, "e" antes de dezenas/unidades
     if (parts.length === 1) return parts[0];
+    // Conector antes do último grupo: "e" só se o último grupo for < 100 (dezena/unidade)
+    // ou uma centena redonda (100, 200…); senão vírgula.
+    // Ex.: 2345 → "dois mil, trezentos e quarenta e cinco"; 2040 → "dois mil e quarenta".
+    const lastNum = resto !== 0 ? resto : mil;
+    const usarE = lastNum < 100 || lastNum % 100 === 0;
     const last = parts[parts.length - 1];
     const init = parts.slice(0, -1).join(', ');
-    return `${init} e ${last}`;
+    return `${init}${usarE ? ' e ' : ', '}${last}`;
   }
 
   const parts: string[] = [];
