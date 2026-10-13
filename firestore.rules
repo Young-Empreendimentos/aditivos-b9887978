@@ -89,11 +89,8 @@ service cloud.firestore {
     }
 
     // Coleção existente no banco mas fora do código do app (log de "sair"/logout).
-    // Tratada com segurança: só @young, sem delete. (duas grafias p/ garantir o match)
+    // Tratada com segurança: só @young, sem delete.
     match /historico_sair/{id} {
-      allow read, create, update: if isYoung();
-    }
-    match /histórico_sair/{id} {
       allow read, create, update: if isYoung();
     }
 
