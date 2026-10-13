@@ -1,0 +1,96 @@
+rules_version = '2';
+
+// Regras de segurança do Firestore do Recalcula (projeto Firebase "gerador-aditivos").
+// Fecham o buraco: antes, aprovação/papel/domínio eram checados SÓ no front; qualquer
+// conta logada podia escrever direto na API (auto-virar admin, usuário pendente lendo dados).
+//
+// ⚠️ Deploy é SEPARADO do app (não sobe pelo Railway). Ver DEPLOY-FIRESTORE-RULES.md.
+// ⚠️ Serviço com Admin SDK / Service Account (ex.: o n8n lendo quitacao_configuracoes)
+//    IGNORA estas regras — então não quebra os bots.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isYoung() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.lower().matches('.*@youngempreendimentos[.]com[.]br');
+    }
+    function myEmail() { return request.auth.token.email.lower(); }
+
+    // Papéis fixos (sementes) — iguais ao SEED_ROLES do código. 'none' = não é semente.
+    function seedRole(email) {
+      return email == 'eduardo@youngempreendimentos.com.br' ? 'admin'
+           : email == 'elen@youngempreendimentos.com.br' ? 'admin'
+           : email == 'suelen@youngempreendimentos.com.br' ? 'coordinator'
+           : 'none';
+    }
+    function rolePath(email) {
+      return /databases/$(database)/documents/roles_gerador_aditivos/$(email);
+    }
+    // Papel efetivo: semente vence; senão o doc (só se aprovado e com papel válido).
+    function docRole(email) {
+      return seedRole(email) != 'none'
+        ? seedRole(email)
+        : (exists(rolePath(email))
+            && get(rolePath(email)).data.status == 'aprovado'
+            && get(rolePath(email)).data.role in ['admin', 'coordinator', 'common']
+              ? get(rolePath(email)).data.role
+              : 'none');
+    }
+    function isApproved() { return isYoung() && docRole(myEmail()) != 'none'; }
+    function isCoord()    { return isYoung() && docRole(myEmail()) in ['admin', 'coordinator']; }
+    function isAdmin()    { return isYoung() && docRole(myEmail()) == 'admin'; }
+
+    // ---- Allowlist / papéis (bloqueia auto-elevação) ----
+    match /roles_gerador_aditivos/{email} {
+      // ler: o próprio doc (p/ saber se está aprovado) ou todos, se for coordenador/admin
+      allow read: if isYoung() && (email == myEmail() || isCoord());
+      // usuário novo cria SÓ a própria solicitação pendente (sem papel, nunca aprovado)
+      allow create: if isYoung() && email == myEmail()
+                    && request.resource.data.status == 'pendente'
+                    && !(request.resource.data.role in ['admin', 'coordinator', 'common']);
+      // aprovar / mudar papel / remover: só coordenador/admin
+      allow update, delete: if isCoord();
+      // sementes podem gravar o próprio doc (auto-correção do papel fixo)
+      allow create, update: if isYoung() && email == myEmail() && seedRole(myEmail()) != 'none';
+    }
+
+    // ---- Configurações de empresa (taxas, templates base64) ----
+    match /configuracoes_empresa_aditivos/{id} {
+      allow read:  if isApproved();   // qualquer aprovado lê (gerar aditivo precisa)
+      allow write: if isCoord();      // só coordenador/admin edita
+    }
+
+    // ---- Configuração global (custo fixo) ----
+    match /configuracoes_globais/{id} {
+      allow read:  if isApproved();
+      allow write: if isAdmin();
+    }
+
+    // ---- Empreendimentos do gerador ----
+    match /empreendimentos_gerador_aditivos/{id} {
+      allow read:  if isApproved();
+      allow write: if isCoord();
+    }
+
+    // ---- Config de quitação (n8n lê por service account = ignora regra) ----
+    match /quitacao_configuracoes/{id} {
+      allow read:  if isApproved();
+      allow write: if isCoord();
+    }
+
+    // ---- Históricos: qualquer aprovado cria/edita; NINGUÉM apaga (regra "nunca apagar") ----
+    match /aditivo_historico/{id} {
+      allow read, create, update: if isApproved();
+    }
+    match /quitacao_historico/{id} {
+      allow read, create, update: if isApproved();
+    }
+
+    // Tudo que não casou acima é NEGADO.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
