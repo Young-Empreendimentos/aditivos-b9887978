@@ -28,13 +28,16 @@ service cloud.firestore {
     function rolePath(email) {
       return /databases/$(database)/documents/roles_gerador_aditivos/$(email);
     }
-    // Papel efetivo: semente vence; senão o doc (só se aprovado e com papel válido).
+    // Papel efetivo: semente vence; senão o doc.
+    // Aprovado = tem papel válido E (status 'aprovado' OU doc antigo sem campo status —
+    // compat: o app já trata "doc com papel, sem status" como aprovado).
     function docRole(email) {
       return seedRole(email) != 'none'
         ? seedRole(email)
         : (exists(rolePath(email))
-            && get(rolePath(email)).data.status == 'aprovado'
             && get(rolePath(email)).data.role in ['admin', 'coordinator', 'common']
+            && (!('status' in get(rolePath(email)).data)
+                || get(rolePath(email)).data.status == 'aprovado')
               ? get(rolePath(email)).data.role
               : 'none');
     }
