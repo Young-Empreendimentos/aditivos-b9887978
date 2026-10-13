@@ -88,6 +88,15 @@ service cloud.firestore {
       allow read, create, update: if isApproved();
     }
 
+    // Coleção existente no banco mas fora do código do app (log de "sair"/logout).
+    // Tratada com segurança: só @young, sem delete. (duas grafias p/ garantir o match)
+    match /historico_sair/{id} {
+      allow read, create, update: if isYoung();
+    }
+    match /histórico_sair/{id} {
+      allow read, create, update: if isYoung();
+    }
+
     // Tudo que não casou acima é NEGADO.
     match /{document=**} {
       allow read, write: if false;
