@@ -1,6 +1,5 @@
 import {
   collection,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -35,6 +34,8 @@ export interface Empreendimento {
   templateSize?: number;
   updatedAt?: number;
   updatedBy?: string | null;
+  /** false = inativo (soft delete). Ausente/true = ativo. */
+  ativo?: boolean;
 }
 
 function slugify(s: string) {
@@ -50,7 +51,9 @@ function slugify(s: string) {
 export async function listEmpreendimentos(): Promise<Empreendimento[]> {
   const q = query(collection(db, EMPREENDIMENTOS_COLLECTION), orderBy('nome'));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Empreendimento, 'id'>) }));
+  return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<Empreendimento, 'id'>) }))
+    .filter((e) => e.ativo !== false); // esconde os inativos (soft delete)
 }
 
 export async function upsertEmpreendimento(
@@ -70,6 +73,7 @@ export async function upsertEmpreendimento(
   if (e.templateSize !== undefined) payload.templateSize = e.templateSize;
   if (e.taxaJurosQuitacao !== undefined) payload.taxaJurosQuitacao = e.taxaJurosQuitacao;
   if (e.regrasQuitacao !== undefined) payload.regrasQuitacao = e.regrasQuitacao;
+  payload.ativo = true; // salvar (re)ativa o empreendimento
   await setDoc(ref, payload, { merge: true });
   return id;
 }
@@ -81,7 +85,13 @@ export async function getEmpreendimento(id: string): Promise<Empreendimento | nu
 }
 
 export async function deleteEmpreendimento(id: string): Promise<void> {
-  await deleteDoc(doc(db, EMPREENDIMENTOS_COLLECTION, id));
+  // Soft delete: marca inativo (some da lista) mas MANTÉM o registro e o histórico de
+  // regras/taxas. Regra da Elen: nunca apagar dados de vez.
+  await setDoc(
+    doc(db, EMPREENDIMENTOS_COLLECTION, id),
+    { ativo: false, removidoEm: serverTimestamp() },
+    { merge: true },
+  );
 }
 
 export async function fileToBase64(file: File): Promise<string> {

@@ -267,11 +267,11 @@ export async function getDadosContrato(billId: number | string): Promise<DadosCo
   const first = (rows ?? [])[0] as SiengeParcelaRow | undefined;
   if (!first) return null;
 
-  const openRows = (rows ?? []).filter((r: SiengeParcelaRow) =>
-    Number(r.current_balance_with_addition ?? r.current_balance ?? 0) > 0,
-  );
-  const totalAberto = openRows.reduce(
-    (sum: number, r: SiengeParcelaRow) => sum + Number(r.current_balance_with_addition ?? r.current_balance ?? 0),
+  // valor_total do contrato = soma dos valores ORIGINAIS de TODAS as parcelas (nominal do
+  // contrato). ANTES usava o saldo em aberto, o que fazia o % pago travar em ~100% e pegar
+  // a faixa de taxa de quitação ERRADA sempre que a RPC do contrato caía e entrava aqui.
+  const valorTotalContrato = (rows ?? []).reduce(
+    (sum: number, r: SiengeParcelaRow) => sum + Number(r.original_amount ?? 0),
     0,
   );
   const unitName = extractUnitName(first) ?? first.main_unit ?? '';
@@ -285,7 +285,7 @@ export async function getDadosContrato(billId: number | string): Promise<DadosCo
       empreendimento: getEnterpriseName(first),
       data_contrato: first.bill_emission_date ?? first.raw_data?.bill?.emissionDate ?? null,
       data_emissao: first.bill_emission_date ?? first.raw_data?.bill?.emissionDate ?? null,
-      valor_total: totalAberto || null,
+      valor_total: valorTotalContrato || null,
       cidade_empreendimento: '',
       estado_empreendimento: '',
     },

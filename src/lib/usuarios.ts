@@ -1,8 +1,8 @@
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 
 export type Role = 'admin' | 'coordinator' | 'common';
-export type StatusAcesso = 'pendente' | 'aprovado';
+export type StatusAcesso = 'pendente' | 'aprovado' | 'removido';
 
 const COLLECTION = 'roles_gerador_aditivos';
 
@@ -23,6 +23,7 @@ function isRole(r: unknown): r is Role {
 export async function listUsuarios(): Promise<UsuarioAcesso[]> {
   const snap = await getDocs(collection(db, COLLECTION));
   return snap.docs
+    .filter((d) => (d.data() as { status?: string }).status !== 'removido') // esconde removidos
     .map((d) => {
       const data = d.data() as { email?: string; role?: unknown; status?: string; solicitadoEm?: string; aprovadoEm?: string; aprovadoPor?: string };
       const hasRole = isRole(data.role);
@@ -49,7 +50,14 @@ export async function aprovarUsuario(email: string, role: Role, aprovadoPor: str
   );
 }
 
-/** Remove o acesso de um usuário (volta a ficar bloqueado/pendente no próximo login). */
+/** Remove o acesso de um usuário. Soft delete: marca 'removido' e tira o papel (bloqueia
+ *  o acesso e some da lista), mas MANTÉM o registro. Regra da Elen: nunca apagar de vez.
+ *  Reaprovar o usuário (aprovarUsuario) volta ele ao normal. */
 export async function removerUsuario(email: string): Promise<void> {
-  await deleteDoc(doc(db, COLLECTION, email.toLowerCase().trim()));
+  const key = email.toLowerCase().trim();
+  await setDoc(
+    doc(db, COLLECTION, key),
+    { email: key, role: null, status: 'removido', removidoEm: new Date().toISOString() },
+    { merge: true },
+  );
 }

@@ -31,6 +31,15 @@ function isRole(r: unknown): r is Role {
   return r === 'admin' || r === 'coordinator' || r === 'common';
 }
 
+/** Garante que a promessa resolva em no máximo `ms` (senão devolve `fallback`).
+ *  Evita o app ficar preso em "Carregando…" se a rede pendurar sem dar erro. */
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
 /**
  * Retorna o papel se o usuário estiver APROVADO; senão null (sem acesso).
  * - Doc aprovado → papel.
@@ -79,13 +88,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      if (u?.email && u.email.toLowerCase().endsWith(ALLOWED_DOMAIN)) {
-        const r = await fetchRole(u.email);
-        setRole(r);
-      } else {
-        setRole(null);
+      try {
+        if (u?.email && u.email.toLowerCase().endsWith(ALLOWED_DOMAIN)) {
+          const r = await withTimeout(fetchRole(u.email), 8000, null);
+          setRole(r);
+        } else {
+          setRole(null);
+        }
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
     return unsub;
   }, []);

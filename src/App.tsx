@@ -5,7 +5,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index.tsx";
 import Login from "./pages/Login.tsx";
@@ -20,14 +20,22 @@ import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
 
+/** Só dispara o confete/som de venda quando há usuário logado — evita o poll ficar
+ *  rodando a cada 3s na tela de login, à toa. */
+function CelebracaoGate() {
+  const { user } = useAuth();
+  if (!user) return null;
+  return <CelebracaoVenda poll={getCelebracoes} sistema="Recalcula" somUrl="/sons/venda-celebracao.mp3" />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <CelebracaoVenda poll={getCelebracoes} sistema="Recalcula" somUrl="/sons/venda-celebracao.mp3" />
       <BrowserRouter>
         <AuthProvider>
+          <CelebracaoGate />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route
