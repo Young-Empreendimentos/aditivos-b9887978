@@ -49,6 +49,9 @@ async function verificarFirebase(req: Request): Promise<{ email: string } | { er
       audience: FIREBASE_PROJECT,
     });
     const email = String(payload.email ?? "").toLowerCase();
+    // Exige e-mail verificado (login Google sempre é) — fecha a brecha de conta forjada
+    // por outro provedor (ex.: e-mail/senha), se algum dia for habilitado no Firebase.
+    if (payload.email_verified !== true) return { erro: "E-mail não verificado" };
     if (!email.endsWith(ALLOWED_DOMAIN)) return { erro: "Domínio não autorizado" };
     return { email };
   } catch (_e) {
@@ -171,6 +174,8 @@ Deno.serve(async (req: Request) => {
         return json({ error: `Ação desconhecida: ${action}` }, 400);
     }
   } catch (e) {
-    return json({ error: e instanceof Error ? e.message : "Erro interno" }, 500);
+    // Loga o detalhe no servidor, mas NÃO devolve a mensagem interna ao cliente.
+    console.error("[sienge-proxy] erro:", e);
+    return json({ error: "Erro interno ao consultar o Sienge" }, 500);
   }
 });
