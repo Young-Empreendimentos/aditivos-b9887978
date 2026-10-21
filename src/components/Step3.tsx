@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowLeft, ArrowRight, ArrowDown, Plus, Trash2, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowDown, Plus, Trash2, Sparkles, X, RotateCcw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DateInput } from '@/components/DateInput';
 import { calculatePMT, generateNovasParcelas, calcularTotalPVReforcos, capitalizarParcelaParaDataBase } from '@/lib/financial';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
+import { cn } from '@/lib/utils';
 import type { Parcela, NovaParcela, Reforco } from '@/types/contract';
 import { toast } from 'sonner';
 
@@ -75,6 +76,9 @@ export function Step3({
   const [autoStart, setAutoStart] = useState<Date | null>(null);
 
   const [manualNumeros, setManualNumeros] = useState<number[] | null>(null);
+  // Valores travados por linha do Quadro 2 (null = automático/diluído). A diferença de
+  // uma parcela editada se espalha nas demais, mantendo o total igual.
+  const [manualValores, setManualValores] = useState<(number | null)[] | null>(null);
 
   // Parcelas não selecionadas (mantidas)
   const parcelasMantidas = useMemo(
@@ -174,14 +178,44 @@ export function Step3({
       merged.forEach((item, idx) => { item.numero = inicio + idx; });
     }
 
+    // Valores manuais: parcelas "travadas" num valor; a diferença dilui igualmente nas
+    // demais, mantendo o TOTAL do quadro igual (sem desconto por valor presente).
+    if (manualValores && manualValores.length === merged.length) {
+      const totalAlvo = merged.reduce((s, m) => s + m.valor, 0);
+      const autoIdxs = merged.map((_, i) => i).filter((i) => manualValores[i] == null);
+      const somaTravadas = merged.reduce(
+        (s, _m, i) => s + (manualValores[i] != null ? (manualValores[i] as number) : 0),
+        0,
+      );
+      const restante = Math.max(0, totalAlvo - somaTravadas);
+      const vAuto = autoIdxs.length > 0 ? Math.round((restante / autoIdxs.length) * 100) / 100 : 0;
+      merged.forEach((m, i) => { m.valor = manualValores[i] != null ? (manualValores[i] as number) : vAuto; });
+      // última "auto" absorve a sobra de centavos pra fechar o total exato
+      if (autoIdxs.length > 0) {
+        const diff = Math.round((totalAlvo - merged.reduce((s, m) => s + m.valor, 0)) * 100) / 100;
+        const ult = autoIdxs[autoIdxs.length - 1];
+        merged[ult].valor = Math.round((merged[ult].valor + diff) * 100) / 100;
+      }
+    }
+
     return merged;
-  }, [parcelas, parcelasMantidas, reforcos, novasParcelasPMT, manualNumeros]);
+  }, [parcelas, parcelasMantidas, reforcos, novasParcelasPMT, manualNumeros, manualValores]);
 
   const totalRenegociado = quadro2Completo.reduce((s, p) => s + p.valor, 0);
   // Juros = só o que o refinanciamento (parcelas PMT) adiciona sobre o valor financiado.
   // Parcelas "mantidas" e reforços NÃO geram juros novos (antes entravam aqui e inflavam o total).
   const totalPMT = novasParcelasPMT.reduce((s, p) => s + p.valor, 0);
   const totalJuros = Math.max(0, totalPMT - pvTotal);
+
+  /** Trava (ou solta, com v=null) o valor de uma linha do Quadro 2. */
+  const setValorManual = (idx: number, v: number | null) => {
+    const base = manualValores && manualValores.length === quadro2Completo.length
+      ? [...manualValores]
+      : quadro2Completo.map(() => null as number | null);
+    base[idx] = v;
+    setManualValores(base.some((x) => x != null) ? base : null);
+  };
+  const temValorTravado = !!(manualValores && manualValores.some((x) => x != null));
 
   const addReforco = () => {
     if (!reforcoData) { toast.error('Informe a data do reforço'); return; }
@@ -405,8 +439,18 @@ export function Step3({
 
       {quadro2Completo.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Quadro 2 — Novo Plano de Parcelas</CardTitle>
+          <CardHeader className="flex-row items-start justify-between gap-2">
+            <div>
+              <CardTitle className="text-lg">Quadro 2 — Novo Plano de Parcelas</CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                Pode editar o valor de uma parcela — a diferença se dilui nas demais (o total não muda).
+              </p>
+            </div>
+            {temValorTravado && (
+              <Button variant="outline" size="sm" className="shrink-0" onClick={() => setManualValores(null)}>
+                <RotateCcw className="w-3.5 h-3.5 mr-1" /> Restaurar valores
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="p-0">
             <div className="max-h-[350px] overflow-auto">
@@ -455,7 +499,13 @@ export function Step3({
                         </div>
                       </TableCell>
                       <TableCell className="tabular-nums">{format(p.dataVencimento, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatCurrency(p.valor)}</TableCell>
+                      <TableCell className="text-right">
+                        <ValorEditavel
+                          valor={p.valor}
+                          travado={!!(manualValores && manualValores[idx] != null)}
+                          onCommit={(v) => setValorManual(idx, v)}
+                        />
+                      </TableCell>
                       <TableCell>
                         {p.tipo === 'reforco' && <Badge variant="secondary">Reforço</Badge>}
                         {p.tipo === 'mantida' && <Badge variant="outline">Mantida</Badge>}
@@ -536,6 +586,48 @@ function ReforcoRow({ reforco, dataRenegociacao, taxaJuros, onUpdate, onRemove }
       <Button variant="ghost" size="icon" className="h-7 w-7 ml-auto" onClick={() => onRemove(reforco.id)}>
         <Trash2 className="w-4 h-4 text-destructive" />
       </Button>
+    </div>
+  );
+}
+
+interface ValorEditavelProps {
+  valor: number;
+  travado: boolean;
+  onCommit: (v: number | null) => void;
+}
+
+/** Campo de valor editável de uma parcela do Quadro 2. Ao digitar e sair do campo,
+ *  trava o valor; a diferença é diluída nas demais parcelas (lógica no quadro2Completo).
+ *  O "x" solta a parcela (volta a ser diluída). */
+function ValorEditavel({ valor, travado, onCommit }: ValorEditavelProps) {
+  const [txt, setTxt] = useState(formatValorInput(valor));
+  useEffect(() => { setTxt(formatValorInput(valor)); }, [valor]);
+  return (
+    <div className="flex items-center justify-end gap-1">
+      <Input
+        type="text"
+        value={txt}
+        onChange={(e) => setTxt(e.target.value)}
+        onBlur={() => {
+          const v = parseValor(txt);
+          if (v > 0) onCommit(v);
+          else setTxt(formatValorInput(valor));
+        }}
+        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        className={cn('w-28 h-7 text-right tabular-nums px-1', travado && 'font-semibold border-primary')}
+        title={travado ? 'Valor travado — o "x" solta' : 'Edite para travar este valor'}
+      />
+      {travado && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 shrink-0"
+          title="Soltar (voltar a diluir)"
+          onClick={() => onCommit(null)}
+        >
+          <X className="w-3 h-3" />
+        </Button>
+      )}
     </div>
   );
 }
