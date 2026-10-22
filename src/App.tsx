@@ -20,12 +20,15 @@ import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
 
+// Prefixo da URL: '/' no Railway, '/aditivos-b9887978' no GitHub Pages (subpasta).
+const BASENAME = import.meta.env.BASE_URL.replace(/\/+$/, "") || "/";
+
 /** Só dispara o confete/som de venda quando há usuário logado — evita o poll ficar
  *  rodando a cada 3s na tela de login, à toa. */
 function CelebracaoGate() {
   const { user } = useAuth();
   if (!user) return null;
-  return <CelebracaoVenda poll={getCelebracoes} sistema="Recalcula" somUrl="/sons/venda-celebracao.mp3" />;
+  return <CelebracaoVenda poll={getCelebracoes} sistema="Recalcula" somUrl={`${import.meta.env.BASE_URL}sons/venda-celebracao.mp3`} />;
 }
 
 const App = () => (
@@ -33,7 +36,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter basename={BASENAME}>
         <AuthProvider>
           <CelebracaoGate />
           <Routes>
