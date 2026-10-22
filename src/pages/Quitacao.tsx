@@ -79,6 +79,12 @@ const Quitacao = () => {
   const [dataBase, setDataBase] = useState(todayIso());
   const [isRegistrado, setIsRegistrado] = useState<boolean>(false);
 
+  // Seleção de parcelas a antecipar (ex.: só as últimas 25). O % pago continua do contrato inteiro.
+  const [selMode, setSelMode] = useState<'todas' | 'ultimas' | 'primeiras' | 'intervalo'>('todas');
+  const [selN, setSelN] = useState(''); // quantas (últimas/primeiras)
+  const [selDe, setSelDe] = useState(''); // intervalo: da parcela nº
+  const [selAte, setSelAte] = useState(''); // intervalo: até a parcela nº
+
   // Cálculo
   const [calculating, setCalculating] = useState(false);
   const [resultado, setResultado] = useState<ResultadoQuitacao | null>(null);
@@ -244,9 +250,29 @@ const Quitacao = () => {
         ? (() => { const [y, m, d] = emissaoStr.split('T')[0].split('-').map(Number); return new Date(y, m - 1, d); })()
         : null;
 
-      // 8. Calcular
+      // 7b. Seleção de parcelas a antecipar (padrão: todas). As parcelas vêm em ordem de
+      // vencimento, então "últimas N" = as N mais distantes; "primeiras N" = as N mais próximas.
+      let parcelasSel = parcelas;
+      if (selMode === 'ultimas') {
+        const n = parseInt(selN) || 0;
+        if (n > 0) parcelasSel = parcelas.slice(-n);
+      } else if (selMode === 'primeiras') {
+        const n = parseInt(selN) || 0;
+        if (n > 0) parcelasSel = parcelas.slice(0, n);
+      } else if (selMode === 'intervalo') {
+        const de = parseInt(selDe) || 0;
+        const ate = parseInt(selAte) || Number.MAX_SAFE_INTEGER;
+        parcelasSel = parcelas.filter((p) => p.numero >= de && p.numero <= ate);
+      }
+      if (parcelasSel.length === 0) {
+        toast.error('A seleção não bateu com nenhuma parcela. Confira os números.');
+        setCalculating(false);
+        return;
+      }
+
+      // 8. Calcular (só as parcelas selecionadas; o % pago segue do contrato inteiro)
       const db = new Date(dataBase + 'T00:00:00');
-      const res = calcularQuitacao(parcelas, db, isRegistrado, valorTotalContrato, valorPago, empCompat, dataContrato);
+      const res = calcularQuitacao(parcelasSel, db, isRegistrado, valorTotalContrato, valorPago, empCompat, dataContrato);
       setResultado(res);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Erro ao calcular');
@@ -486,6 +512,55 @@ const Quitacao = () => {
                   </div>
                 </div>
 
+                {/* Seleção de parcelas a antecipar */}
+                <div className="space-y-1.5">
+                  <Label>Antecipar quais parcelas?</Label>
+                  <div className="flex gap-2 items-center">
+                    <Select value={selMode} onValueChange={(v) => setSelMode(v as typeof selMode)}>
+                      <SelectTrigger className="w-44">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todas">Todo o contrato</SelectItem>
+                        <SelectItem value="ultimas">Últimas N parcelas</SelectItem>
+                        <SelectItem value="primeiras">Primeiras N parcelas</SelectItem>
+                        <SelectItem value="intervalo">Da nº X até a nº Y</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {(selMode === 'ultimas' || selMode === 'primeiras') && (
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="N"
+                        value={selN}
+                        onChange={(e) => setSelN(e.target.value)}
+                        className="w-20 tabular-nums"
+                      />
+                    )}
+                    {selMode === 'intervalo' && (
+                      <>
+                        <Input
+                          type="number"
+                          min={0}
+                          placeholder="de"
+                          value={selDe}
+                          onChange={(e) => setSelDe(e.target.value)}
+                          className="w-20 tabular-nums"
+                        />
+                        <span className="text-sm text-muted-foreground">até</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          placeholder="até"
+                          value={selAte}
+                          onChange={(e) => setSelAte(e.target.value)}
+                          className="w-20 tabular-nums"
+                        />
+                      </>
+                    )}
+                  </div>
+                </div>
+
                 {/* Botão calcular */}
                 <Button
                   onClick={handleCalcular}
@@ -525,6 +600,9 @@ const Quitacao = () => {
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <Badge variant="secondary">
+                    {resultado.parcelas.length} parcela(s)
+                  </Badge>
                   <Badge variant="outline">
                     {empConf.empreendimento}
                   </Badge>
