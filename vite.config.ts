@@ -5,9 +5,9 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // No GitHub Pages o app fica em /aditivos-b9887978/ (subpasta). No Railway fica na raiz.
-  // O workflow do Pages define GITHUB_PAGES=true; o build do Railway não, então vai '/'.
-  base: process.env.GITHUB_PAGES === "true" ? "/aditivos-b9887978/" : "/",
+  // Serve na raiz: vale pro Railway e pro GitHub Pages com domínio próprio
+  // (recalcula.youngempreendimentos.com.br).
+  base: "/",
   server: {
     host: "::",
     port: 8080,

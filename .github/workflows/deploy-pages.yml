@@ -24,10 +24,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Build (base de GitHub Pages)
-        run: npm run build
-        env:
-          GITHUB_PAGES: "true"
+      - run: npm run build
       # SPA: qualquer rota cai no 404 do Pages; servir o index faz o React Router assumir.
       - run: cp dist/index.html dist/404.html
       - uses: actions/configure-pages@v5
