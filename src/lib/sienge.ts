@@ -407,8 +407,8 @@ export interface RegraTipoRecebimento {
 export const LABEL_REGRA_TIPO: Record<RegraTipoValor, string> = {
   sempre: 'Conta (sempre)',
   nunca: 'Não conta',
-  so_entrada: 'Conta só na entrada',
-  so_fora_entrada: 'Conta só fora da entrada',
+  so_entrada: 'Conta só na entrada/sinal',
+  so_fora_entrada: 'Conta só fora da entrada/sinal',
 };
 
 export async function listRegrasTipo(): Promise<RegraTipoRecebimento[]> {

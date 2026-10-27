@@ -637,8 +637,8 @@ function RegrasValorPagoCard({ canEdit }: { canEdit: boolean }) {
               <span className="text-[11px] text-muted-foreground leading-tight">
                 {k === 'sempre' && 'em qualquer parcela'}
                 {k === 'nunca' && 'nunca entra'}
-                {k === 'so_entrada' && 'só se for a entrada'}
-                {k === 'so_fora_entrada' && 'só fora da entrada'}
+                {k === 'so_entrada' && 'só na entrada ou sinal (AT/SI)'}
+                {k === 'so_fora_entrada' && 'só fora da entrada/sinal'}
               </span>
             </div>
           ))}
