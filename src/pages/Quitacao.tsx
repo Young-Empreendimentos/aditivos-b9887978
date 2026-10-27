@@ -32,7 +32,7 @@ import {
   listContratosByCliente,
   listParcelasByContrato,
   getDadosContrato,
-  getValorPagoDetalhe,
+  getValorPago,
   extractUnitName,
   type EmpresaSienge,
   type ClienteSienge,
@@ -165,17 +165,9 @@ const Quitacao = () => {
       // 2. Dados do contrato (valor total + empreendimento)
       const dadosContrato = await getDadosContrato(selectedContrato.bill_id);
       // 2b. Valor já pago (principal, sem juros/multa) — via RPC, funciona em renegociados.
-      // Detalhe: separa as baixas "Cancelamento". A da entrada (AT) já entra no pago;
-      // a de outras parcelas NÃO entra e vira aviso para conferência manual.
-      const detPago = await getValorPagoDetalhe(selectedContrato.bill_id);
-      const valorPago = detPago.valor_pago;
-      if (detPago.cancelamento_outras > 0) {
-        toast.warning(
-          `Atenção: este contrato tem ${formatCurrency(detPago.cancelamento_outras)} lançado como "Cancelamento" fora da entrada. ` +
-            `Esse valor NÃO foi contado como pago — confira no Sienge se é estorno ou pagamento.`,
-          { duration: 12000 }
-        );
-      }
+      // As regras de quais tipos de baixa contam (incl. Cancelamento) ficam na tabela
+      // recalcula_regras_tipo_recebimento, editável em Configurações.
+      const valorPago = await getValorPago(selectedContrato.bill_id);
 
       // 3. Config de taxa do empreendimento (Firestore quitacao_configuracoes)
       const nomeEmp =
