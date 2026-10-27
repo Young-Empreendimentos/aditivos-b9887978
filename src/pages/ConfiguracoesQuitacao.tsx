@@ -772,6 +772,56 @@ function ExemploCalculoCard() {
   );
 }
 
+// ─── Como o aditivo (reparcelamento) é montado — informativo p/ validação ────
+
+function AditivoInfoCard() {
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Info className="h-4 w-4 text-[#fe5009]" />
+          Como o valor do aditivo (reparcelamento) é montado
+        </CardTitle>
+        <p className="text-xs text-muted-foreground mt-1">
+          Explicação para conferência. A <strong>ideia do aditivo é sempre aumentar</strong> — ele está
+          reparcelando a dívida do cliente. Se algo aqui não fizer sentido, avise a Elen (não mude sozinha).
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <ol className="list-decimal pl-5 space-y-2 text-xs">
+          <li>
+            Pega as parcelas que serão renegociadas e leva todas para a <strong>data base</strong>:
+            <ul className="list-disc pl-5 mt-1 space-y-0.5 text-muted-foreground">
+              <li>parcela <strong>vencida</strong> → soma juros de atraso (aumenta);</li>
+              <li>parcela <strong>a vencer</strong> → hoje o sistema traz a valor presente.</li>
+            </ul>
+          </li>
+          <li>Soma tudo = valor a refinanciar (mais custos, menos reforços a valor presente).</li>
+          <li>Divide em N novas parcelas com juros (recoloca os juros para a frente).</li>
+          <li>Junta parcelas do mesmo vencimento num boleto só.</li>
+          <li>As meninas podem <strong>editar o valor</strong> de qualquer parcela do Quadro 2 na mão — a diferença se dilui nas outras, mantendo o total.</li>
+        </ol>
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-1.5">
+          <p>
+            <strong>Por que desconta no passo 1 e cobra juros no passo 3?</strong> Os dois usam a mesma
+            taxa, então em “dinheiro de hoje” eles <strong>se anulam</strong>: o plano novo vale hoje o
+            mesmo que as parcelas antigas valiam.
+          </p>
+          <p>
+            O total dos boletos só fica <strong>maior</strong> se o novo parcelamento for mais
+            <strong> longo</strong>. Se for mais <strong>curto</strong>, pode sair igual ou até
+            <strong> menor</strong> que a dívida — por isso não é garantido “sempre aumentar”.
+          </p>
+          <p>
+            <strong>Suelen:</strong> se em algum caso o Quadro 2 sair <strong>abaixo</strong> da dívida
+            atual, avise a Elen — ela decide se tira o desconto da parcela a vencer.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function ConfiguracoesQuitacao() {
@@ -974,6 +1024,7 @@ export default function ConfiguracoesQuitacao() {
 
         <RegrasValorPagoCard canEdit={canEdit} />
         <ExemploCalculoCard />
+        <AditivoInfoCard />
       </div>
 
       {dialogRow && (
