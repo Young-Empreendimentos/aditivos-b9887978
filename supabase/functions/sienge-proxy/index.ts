@@ -156,6 +156,11 @@ Deno.serve(async (req: Request) => {
         const { data, error } = await admin.rpc("get_valor_pago", { p_bill_id: toNum(p.billId) });
         return json({ data, error: error?.message ?? null });
       }
+      case "valorPagoDetalhe": {
+        // { valor_pago, cancelamento_entrada (já contado), cancelamento_outras (aviso) }
+        const { data, error } = await admin.rpc("get_valor_pago_detalhe", { p_bill_id: toNum(p.billId) });
+        return json({ data, error: error?.message ?? null });
+      }
       case "celebracoes": {
         // Celebração de venda: lê public.vendas_celebracao com a service role (ignora RLS).
         const sinceId = typeof p.sinceId === "number" ? p.sinceId : null;

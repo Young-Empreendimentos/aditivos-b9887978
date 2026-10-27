@@ -359,6 +359,33 @@ export async function getValorPago(billId: number | string): Promise<number> {
   return Number(data ?? 0);
 }
 
+export interface ValorPagoDetalhe {
+  valor_pago: number;
+  /** Cancelamento que estava na ENTRADA (AT) — já incluído em valor_pago. */
+  cancelamento_entrada: number;
+  /** Cancelamento em outras parcelas (saldo/PM/reforço) — NÃO contado; serve de aviso. */
+  cancelamento_outras: number;
+}
+
+/**
+ * Valor pago com detalhamento das baixas do tipo "Cancelamento".
+ * Em alguns contratos a entrada do cliente foi lançada como Cancelamento — isso
+ * agora conta como pago (cancelamento_entrada). Quando há Cancelamento em outras
+ * parcelas (cancelamento_outras > 0), o app avisa para conferência humana.
+ */
+export async function getValorPagoDetalhe(billId: number | string): Promise<ValorPagoDetalhe> {
+  const { data, error } = await proxy<ValorPagoDetalhe>("valorPagoDetalhe", { billId });
+  if (error || !data) {
+    console.warn("[getValorPagoDetalhe] erro na RPC:", error);
+    return { valor_pago: 0, cancelamento_entrada: 0, cancelamento_outras: 0 };
+  }
+  return {
+    valor_pago: Number(data.valor_pago ?? 0),
+    cancelamento_entrada: Number(data.cancelamento_entrada ?? 0),
+    cancelamento_outras: Number(data.cancelamento_outras ?? 0),
+  };
+}
+
 /**
  * Celebração de venda (confete + som quando alguém marca venda no CRM).
  * Em vez de Realtime com chave anon, consulta a Edge Function (token do Firebase,
