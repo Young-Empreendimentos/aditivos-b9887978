@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, GripVertical, List, Loader2, Plus, Save, Settings2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Calculator, Coins, GripVertical, Info, List, Loader2, Plus, Save, Settings2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -49,7 +49,14 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermission } from '@/hooks/usePermission';
-import { listEmpreendimentosSienge } from '@/lib/sienge';
+import {
+  listEmpreendimentosSienge,
+  listRegrasTipo,
+  salvarRegrasTipo,
+  LABEL_REGRA_TIPO,
+  type RegraTipoRecebimento,
+  type RegraTipoValor,
+} from '@/lib/sienge';
 import {
   getQuitacaoConfig,
   saveQuitacaoConfig,
@@ -558,6 +565,213 @@ function LotesDialog({
   );
 }
 
+// ─── Regras: o que conta como "valor pago" ──────────────────────────────────
+// Fonte única = tabela no banco, lida pelo cálculo. Editar aqui (admin) muda o
+// cálculo da quitação na hora (e o bot do financeiro, que usa a mesma função).
+
+const REGRA_BADGE: Record<RegraTipoValor, string> = {
+  sempre: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  nunca: 'bg-rose-100 text-rose-700 border-rose-200',
+  so_entrada: 'bg-amber-100 text-amber-800 border-amber-200',
+  so_fora_entrada: 'bg-sky-100 text-sky-700 border-sky-200',
+};
+
+function RegrasValorPagoCard({ canEdit }: { canEdit: boolean }) {
+  const [rows, setRows] = useState<RegraTipoRecebimento[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const data = await listRegrasTipo();
+      if (!cancelled) {
+        setRows(data);
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  function setRegra(tipo: string, regra: RegraTipoValor) {
+    setRows((prev) => prev.map((r) => (r.tipo === tipo ? { ...r, regra } : r)));
+    setDirty(true);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await salvarRegrasTipo(rows.map(({ tipo, regra, descricao }) => ({ tipo, regra, descricao })));
+      toast.success('Regras salvas! O cálculo da quitação já está usando elas.');
+      setDirty(false);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar as regras');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Coins className="h-4 w-4 text-[#fe5009]" />
+          Como o valor pago é calculado
+        </CardTitle>
+        <p className="text-xs text-muted-foreground mt-1">
+          Cada baixa do Sienge tem um <strong>tipo</strong>. Aqui você decide quais tipos entram na conta
+          de <strong>“quanto o cliente já pagou”</strong> — que define a faixa de desconto da quitação.
+          {canEdit
+            ? ' O que estiver aqui é exatamente o que o sistema usa no cálculo.'
+            : ' (Somente leitura — peça a um admin para alterar.)'}
+        </p>
+      </CardHeader>
+      <CardContent>
+        {/* Legenda das opções */}
+        <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {(Object.keys(LABEL_REGRA_TIPO) as RegraTipoValor[]).map((k) => (
+            <div key={k} className="flex items-center gap-2 rounded-md border p-2">
+              <Badge variant="outline" className={`${REGRA_BADGE[k]} font-medium`}>{LABEL_REGRA_TIPO[k]}</Badge>
+              <span className="text-[11px] text-muted-foreground leading-tight">
+                {k === 'sempre' && 'em qualquer parcela'}
+                {k === 'nunca' && 'nunca entra'}
+                {k === 'so_entrada' && 'só se for a entrada'}
+                {k === 'so_fora_entrada' && 'só fora da entrada'}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {loading ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">
+            <Loader2 className="inline h-4 w-4 animate-spin mr-2" /> Carregando regras…
+          </div>
+        ) : (
+          <div className="rounded-md border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-44">Tipo de baixa</TableHead>
+                  <TableHead>O que é</TableHead>
+                  <TableHead className="w-56">Conta como pago?</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r) => (
+                  <TableRow key={r.tipo}>
+                    <TableCell className="font-medium">{r.tipo}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{r.descricao}</TableCell>
+                    <TableCell>
+                      {canEdit ? (
+                        <Select value={r.regra} onValueChange={(v) => setRegra(r.tipo, v as RegraTipoValor)}>
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(Object.keys(LABEL_REGRA_TIPO) as RegraTipoValor[]).map((k) => (
+                              <SelectItem key={k} value={k} className="text-xs">{LABEL_REGRA_TIPO[k]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge variant="outline" className={`${REGRA_BADGE[r.regra]} font-medium`}>
+                          {LABEL_REGRA_TIPO[r.regra]}
+                        </Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        {canEdit && (
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <Info className="h-3 w-3" />
+              Mudanças valem para <strong>todos os contratos</strong> e para o bot do financeiro.
+            </p>
+            <Button onClick={handleSave} disabled={!dirty || saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Salvar regras
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Exemplo fictício do cálculo (para conferir no Excel) ────────────────────
+
+function ExemploCalculoCard() {
+  return (
+    <Card className="mt-6 border-dashed">
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Calculator className="h-4 w-4 text-[#fe5009]" />
+          Exemplo de como a conta é feita (números fictícios)
+        </CardTitle>
+        <p className="text-xs text-muted-foreground mt-1">
+          Contrato de exemplo que <strong>não existe</strong> — serve só para você conferir a fórmula numa planilha.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4 text-sm">
+        {/* Passo 1 */}
+        <div className="rounded-md border p-3">
+          <p className="font-medium mb-2">1) Quanto o cliente já pagou</p>
+          <table className="w-full text-xs">
+            <tbody className="[&_td]:py-0.5">
+              <tr><td>Recebimentos normais</td><td className="text-right tabular-nums">R$ 40.000,00</td><td className="pl-3 text-emerald-700">conta</td></tr>
+              <tr><td>Entrada lançada como “Cancelamento”</td><td className="text-right tabular-nums">R$ 10.000,00</td><td className="pl-3 text-emerald-700">conta (entrada)</td></tr>
+              <tr><td>Bonificação (comissão ao corretor)</td><td className="text-right tabular-nums">R$ 5.000,00</td><td className="pl-3 text-rose-600">não conta</td></tr>
+              <tr className="border-t font-medium"><td>Valor pago</td><td className="text-right tabular-nums">R$ 50.000,00</td><td /></tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Passo 2 */}
+        <div className="rounded-md border p-3">
+          <p className="font-medium mb-1">2) % pago e faixa de desconto</p>
+          <p className="text-xs text-muted-foreground">
+            Valor total do contrato = <span className="tabular-nums">R$ 100.000,00</span>
+          </p>
+          <p className="font-mono text-xs mt-1">% pago = 50.000 ÷ 100.000 = <strong>50%</strong></p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Na faixa configurada, suponha que 50% pago → taxa <strong>0,50% a.m.</strong>
+          </p>
+        </div>
+
+        {/* Passo 3 */}
+        <div className="rounded-md border p-3">
+          <p className="font-medium mb-1">3) Desconto de cada parcela futura (valor presente)</p>
+          <p className="font-mono text-xs bg-muted/40 rounded p-2 mt-1">
+            VP = VF ÷ (1 + taxa_mensal)^(dias ÷ 30)
+          </p>
+          <p className="text-xs text-muted-foreground mt-2">
+            Ex.: uma parcela de <span className="tabular-nums">R$ 1.000,00</span> que vence em <strong>180 dias</strong> (6 meses):
+          </p>
+          <p className="font-mono text-xs mt-1">
+            VP = 1.000 ÷ (1,005)^(180÷30) = 1.000 ÷ 1,005^6 = 1.000 ÷ 1,030378 = <strong>R$ 970,51</strong>
+          </p>
+          <div className="mt-2 rounded bg-muted/40 p-2">
+            <p className="text-[11px] text-muted-foreground mb-0.5">Cole numa célula do Excel para conferir:</p>
+            <code className="text-xs select-all">=1000/(1,005)^(180/30)</code>
+            <span className="text-[11px] text-muted-foreground"> → 970,51</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Parcela <strong>vencida</strong> (data já passou) entra pelo saldo cheio, sem desconto.
+            O total da quitação é a soma do valor presente de todas as parcelas escolhidas.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function ConfiguracoesQuitacao() {
@@ -641,19 +855,17 @@ export default function ConfiguracoesQuitacao() {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-4 py-8">
-        <header className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/"><ArrowLeft className="h-4 w-4" /> Voltar</Link>
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Configurações · Quitação</h1>
-              <p className="text-sm text-muted-foreground">
-                Taxa padrão e regras de desconto por empreendimento
-              </p>
-            </div>
+        <Button asChild variant="ghost" size="sm" className="mb-3 -ml-2">
+          <Link to="/"><ArrowLeft className="h-4 w-4" /> Voltar</Link>
+        </Button>
+        <header className="mb-6 flex items-start justify-between gap-3 border-l-4 border-[#fe5009] pl-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Configurações · Quitação</h1>
+            <p className="text-sm text-muted-foreground">
+              Taxa de desconto por empreendimento e as regras de quanto o cliente já pagou
+            </p>
           </div>
-          <Badge variant="outline" className="capitalize">{role ?? ''}</Badge>
+          <Badge variant="outline" className="capitalize shrink-0">{role ?? ''}</Badge>
         </header>
 
         {!canEdit && (
@@ -759,6 +971,9 @@ export default function ConfiguracoesQuitacao() {
           A lista é gerada automaticamente a partir dos empreendimentos presentes no Sienge.
           A taxa padrão é usada quando nenhuma regra específica bater nos critérios do contrato.
         </p>
+
+        <RegrasValorPagoCard canEdit={canEdit} />
+        <ExemploCalculoCard />
       </div>
 
       {dialogRow && (

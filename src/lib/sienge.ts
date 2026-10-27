@@ -3,7 +3,8 @@ import { auth } from "@/lib/firebase";
 // Todo acesso ao Sienge passa pela Edge Function `sienge-proxy` (porteiro no servidor):
 // ela valida o login do Firebase (token do usuário) e lê o Sienge com a service role,
 // que fica SÓ no servidor. Assim não há nenhuma chave do Supabase no navegador e o
-// acesso `anon` continua fechado. Somente LEITURA.
+// acesso `anon` continua fechado. Quase tudo é leitura; a única escrita é
+// salvarRegrasTipo (regras de valor pago), restrita a admin no servidor.
 const PROXY_URL = "https://vvtympzatclvjaqucebr.supabase.co/functions/v1/sienge-proxy";
 
 async function proxy<T = unknown>(
@@ -387,6 +388,44 @@ export async function getValorPagoDetalhe(billId: number | string): Promise<Valo
     cancelamento_outras: Number(data.cancelamento_outras ?? 0),
     bonificacao: Number(data.bonificacao ?? 0),
   };
+}
+
+// ─── Regras de "o que conta como valor pago" por tipo de baixa do Sienge ──────
+// Fonte única = tabela public.recalcula_regras_tipo_recebimento, lida pelas RPCs
+// get_valor_pago/_detalhe. Editar aqui (admin) muda o cálculo na hora.
+
+export type RegraTipoValor = 'sempre' | 'nunca' | 'so_entrada' | 'so_fora_entrada';
+
+export interface RegraTipoRecebimento {
+  tipo: string;
+  regra: RegraTipoValor;
+  descricao: string | null;
+  updated_at?: string;
+  updated_by?: string | null;
+}
+
+export const LABEL_REGRA_TIPO: Record<RegraTipoValor, string> = {
+  sempre: 'Conta (sempre)',
+  nunca: 'Não conta',
+  so_entrada: 'Conta só na entrada',
+  so_fora_entrada: 'Conta só fora da entrada',
+};
+
+export async function listRegrasTipo(): Promise<RegraTipoRecebimento[]> {
+  const { data, error } = await proxy<RegraTipoRecebimento[]>("regrasTipo", {});
+  if (error || !data) {
+    console.warn("[listRegrasTipo] erro:", error);
+    return [];
+  }
+  return data;
+}
+
+/** Salva as regras (só admin — o servidor também valida). Lança erro em falha. */
+export async function salvarRegrasTipo(
+  regras: Array<Pick<RegraTipoRecebimento, 'tipo' | 'regra' | 'descricao'>>,
+): Promise<void> {
+  const { error } = await proxy<{ ok: boolean }>("salvarRegrasTipo", { regras });
+  if (error) throw new Error(error.message);
 }
 
 /**
