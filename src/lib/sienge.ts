@@ -365,6 +365,8 @@ export interface ValorPagoDetalhe {
   cancelamento_entrada: number;
   /** Cancelamento em outras parcelas (saldo/PM/reforço) — NÃO contado; serve de aviso. */
   cancelamento_outras: number;
+  /** Bonificação (comissão paga ao corretor / desconto) — NÃO contado. */
+  bonificacao: number;
 }
 
 /**
@@ -377,12 +379,13 @@ export async function getValorPagoDetalhe(billId: number | string): Promise<Valo
   const { data, error } = await proxy<ValorPagoDetalhe>("valorPagoDetalhe", { billId });
   if (error || !data) {
     console.warn("[getValorPagoDetalhe] erro na RPC:", error);
-    return { valor_pago: 0, cancelamento_entrada: 0, cancelamento_outras: 0 };
+    return { valor_pago: 0, cancelamento_entrada: 0, cancelamento_outras: 0, bonificacao: 0 };
   }
   return {
     valor_pago: Number(data.valor_pago ?? 0),
     cancelamento_entrada: Number(data.cancelamento_entrada ?? 0),
     cancelamento_outras: Number(data.cancelamento_outras ?? 0),
+    bonificacao: Number(data.bonificacao ?? 0),
   };
 }
 
