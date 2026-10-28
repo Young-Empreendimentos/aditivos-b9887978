@@ -217,11 +217,35 @@ export function Step3({
   };
   const temValorTravado = !!(manualValores && manualValores.some((x) => x != null));
 
+  // ── Trava da regra do reforço (Elen, 28/10/2026) ──────────────────────────
+  // Regra: no máximo 1 mês pode ter SÓ reforço (sem parcela). Reforço é antecipação,
+  // tem que vir junto com parcela; vários meses só de reforço = adiamento disfarçado,
+  // que dá desconto indevido. A trava dispara na hora de colocar/editar o reforço.
+  const mesKey = (d: Date) => d.getFullYear() * 12 + d.getMonth();
+  const mesesComParcela = useMemo(() => {
+    const s = new Set<number>();
+    novasParcelasPMT.forEach((p) => s.add(mesKey(p.dataVencimento)));
+    parcelasMantidas.filter((p) => p.saldoAtual > 0).forEach((p) => s.add(mesKey(p.dataVencimento)));
+    return s;
+  }, [novasParcelasPMT, parcelasMantidas]);
+
+  const contarMesesSoReforco = (lista: Reforco[]): number => {
+    const meses = new Set<number>();
+    lista.forEach((r) => meses.add(mesKey(r.data)));
+    let n = 0;
+    meses.forEach((m) => { if (!mesesComParcela.has(m)) n++; });
+    return n;
+  };
+  const MSG_SO_REFORCO =
+    'Não é permitido mais de um mês só com reforço (sem parcela). A partir do 2º mês tem que haver parcela — ajuste a data do reforço ou a data de início das parcelas.';
+
   const addReforco = () => {
     if (!reforcoData) { toast.error('Informe a data do reforço'); return; }
     const val = parseValor(reforcoValor);
     if (!val || val <= 0) { toast.error('Informe um valor válido para o reforço'); return; }
-    onReforcos([...reforcos, { id: crypto.randomUUID(), data: reforcoData, valor: val }]);
+    const novo: Reforco = { id: crypto.randomUUID(), data: reforcoData, valor: val };
+    if (startDate && contarMesesSoReforco([...reforcos, novo]) >= 2) { toast.error(MSG_SO_REFORCO); return; }
+    onReforcos([...reforcos, novo]);
     setReforcoData(null);
     setReforcoValor('');
   };
@@ -238,6 +262,7 @@ export function Step3({
     for (let k = 0; k < qtd; k++) {
       novos.push({ id: crypto.randomUUID(), data: addMonths(autoStart, meses * k), valor: val });
     }
+    if (startDate && contarMesesSoReforco([...reforcos, ...novos]) >= 2) { toast.error(MSG_SO_REFORCO); return; }
     onReforcos([...reforcos, ...novos]);
     toast.success(`${qtd} reforço(s) gerado(s) — você pode editar ou excluir cada um abaixo`);
     setAutoValor('');
@@ -246,6 +271,10 @@ export function Step3({
   };
 
   const updateReforco = (id: string, patch: Partial<Reforco>) => {
+    if (patch.data && startDate) {
+      const candidato = reforcos.map(r => (r.id === id ? { ...r, ...patch } : r));
+      if (contarMesesSoReforco(candidato) >= 2) { toast.error(MSG_SO_REFORCO); return; }
+    }
     onReforcos(reforcos.map(r => (r.id === id ? { ...r, ...patch } : r)));
   };
 
@@ -261,6 +290,8 @@ export function Step3({
   const handleNext = () => {
     if (numParcelas <= 0) { toast.error('Informe o número de parcelas'); return; }
     if (!startDate) { toast.error('Selecione a data do primeiro vencimento'); return; }
+    // Backstop: garante a regra do reforço mesmo que a estrutura tenha mudado depois.
+    if (contarMesesSoReforco(reforcos) >= 2) { toast.error(MSG_SO_REFORCO); return; }
     onSimulationResult(quadro2Completo, pvTotal, pmt, totalJuros, totalRenegociado);
     onNext();
   };
