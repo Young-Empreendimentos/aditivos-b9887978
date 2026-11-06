@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateInput } from '@/components/DateInput';
-import { calculatePMT, generateNovasParcelas, calcularTotalPVReforcos, capitalizarParcelaParaDataBase } from '@/lib/financial';
+import { calculatePMT, generateNovasParcelas, calcularTotalPVReforcos, capitalizarParcelaParaDataBase, diluirValorAdiado } from '@/lib/financial';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import type { Parcela, NovaParcela, Reforco } from '@/types/contract';
@@ -66,6 +66,8 @@ export function Step3({
 }: Step3Props) {
 
   // Reforço manual
+  // Modo: reparcelamento mensal (padrão) ou diluir parcela adiada nas demais.
+  const [modo, setModo] = useState<'mensal' | 'diluir'>('mensal');
   const [reforcoData, setReforcoData] = useState<Date | null>(null);
   const [reforcoValor, setReforcoValor] = useState('');
 
@@ -287,7 +289,40 @@ export function Step3({
     [reforcos]
   );
 
+  // ── Modo diluição: parcela(s) adiada(s) (as selecionadas) → valor diluído nas
+  // demais parcelas a vencer, com juros. Traz a VP primeiro (sem juros sobre juros).
+  const recebedorasDiluir = useMemo(
+    () => parcelas
+      .filter(p => p.saldoAtual > 0 && !p.isEntrada && !selectedIds.has(p.rowIndex))
+      .sort((a, b) => a.dataVencimento.getTime() - b.dataVencimento.getTime()),
+    [parcelas, selectedIds]
+  );
+  const diluicao = useMemo(() => {
+    if (modo !== 'diluir' || selectedParcelas.length === 0 || recebedorasDiluir.length === 0) return null;
+    return diluirValorAdiado(
+      selectedParcelas.map(p => ({ saldoAtual: p.saldoAtual, dataVencimento: p.dataVencimento })),
+      recebedorasDiluir.map(p => ({ saldoAtual: p.saldoAtual, dataVencimento: p.dataVencimento })),
+      dataRenegociacao,
+      taxaJuros,
+    );
+  }, [modo, selectedParcelas, recebedorasDiluir, dataRenegociacao, taxaJuros]);
+  const quadro2Diluido: NovaParcela[] = useMemo(() => {
+    if (!diluicao) return [];
+    return recebedorasDiluir.map((p, k) => ({
+      numero: p.numero, dataVencimento: p.dataVencimento, valor: diluicao.valoresFinais[k], tipo: 'nova' as const,
+    }));
+  }, [diluicao, recebedorasDiluir]);
+  const totalDiluido = useMemo(() => quadro2Diluido.reduce((s, p) => s + p.valor, 0), [quadro2Diluido]);
+
   const handleNext = () => {
+    if (modo === 'diluir') {
+      if (selectedParcelas.length === 0) { toast.error('Volte à Seleção e marque a(s) parcela(s) que o cliente vai adiar.'); return; }
+      if (recebedorasDiluir.length === 0) { toast.error('Não há outras parcelas a vencer para receber a diluição.'); return; }
+      const jurosDil = diluicao ? (diluicao.incrementos.reduce((s, x) => s + x, 0) - diluicao.valorPresenteAdiado) : 0;
+      onSimulationResult(quadro2Diluido, totalDiluido, 0, Math.max(0, jurosDil), totalDiluido);
+      onNext();
+      return;
+    }
     if (numParcelas <= 0) { toast.error('Informe o número de parcelas'); return; }
     if (!startDate) { toast.error('Selecione a data do primeiro vencimento'); return; }
     // Backstop: garante a regra do reforço mesmo que a estrutura tenha mudado depois.
@@ -298,6 +333,17 @@ export function Step3({
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
+      {/* Seletor de modo */}
+      <div className="flex flex-wrap gap-2">
+        <Button variant={modo === 'mensal' ? 'default' : 'outline'} size="sm" onClick={() => setModo('mensal')}>
+          Reparcelar em mensais
+        </Button>
+        <Button variant={modo === 'diluir' ? 'default' : 'outline'} size="sm" onClick={() => setModo('diluir')}>
+          Diluir parcela adiada nas demais
+        </Button>
+      </div>
+
+      {modo === 'mensal' && (<>
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardContent className="pt-6">
@@ -549,6 +595,78 @@ export function Step3({
             </div>
           </CardContent>
         </Card>
+      )}
+      </>)}
+
+      {modo === 'diluir' && (
+        <div className="space-y-4">
+          <Card className="bg-amber-50 border-amber-200">
+            <CardContent className="pt-6 text-sm text-amber-900">
+              <strong>Diluir parcela adiada nas demais.</strong> As parcelas marcadas no passo <strong>Seleção</strong> serão
+              {' '}<strong>zeradas (adiadas)</strong> e o valor delas, trazido a valor presente, é diluído nas demais parcelas a
+              vencer <strong>com juros</strong> até a data de cada uma (a última fica a mais cara). Mantém a estrutura — não vira mensal.
+            </CardContent>
+          </Card>
+
+          {selectedParcelas.length === 0 ? (
+            <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">
+              Volte ao passo <strong>Seleção</strong> e marque a(s) parcela(s) que o cliente vai <strong>adiar</strong> (ex.: o reforço de 2026).
+            </CardContent></Card>
+          ) : recebedorasDiluir.length === 0 ? (
+            <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">
+              Não há outras parcelas a vencer para receber a diluição.
+            </CardContent></Card>
+          ) : (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Resultado da diluição</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  {selectedParcelas.length} parcela(s) adiada(s) · valor presente {formatCurrency(diluicao?.valorPresenteAdiado ?? 0)} ·
+                  {' '}diluído em {recebedorasDiluir.length} parcela(s) · taxa {formatPercent(taxaJuros)} a.m.
+                </p>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="max-h-[350px] overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="w-16">Nº</TableHead>
+                        <TableHead>Vencimento</TableHead>
+                        <TableHead className="text-right">Valor original</TableHead>
+                        <TableHead className="text-right">+ Juros</TableHead>
+                        <TableHead className="text-right">Novo valor</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedParcelas.map((p) => (
+                        <TableRow key={`ad-${p.rowIndex}`} className="bg-rose-50">
+                          <TableCell className="tabular-nums">{p.numero}</TableCell>
+                          <TableCell className="tabular-nums">{format(p.dataVencimento, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground line-through">{formatCurrency(p.saldoAtual)}</TableCell>
+                          <TableCell className="text-right tabular-nums">—</TableCell>
+                          <TableCell className="text-right tabular-nums font-semibold text-rose-700">R$ 0,00 (adiado)</TableCell>
+                        </TableRow>
+                      ))}
+                      {recebedorasDiluir.map((p, k) => (
+                        <TableRow key={`rc-${p.rowIndex}`}>
+                          <TableCell className="tabular-nums">{p.numero}</TableCell>
+                          <TableCell className="tabular-nums">{format(p.dataVencimento, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground">{formatCurrency(p.saldoAtual)}</TableCell>
+                          <TableCell className="text-right tabular-nums text-emerald-700">+ {formatCurrency(diluicao?.incrementos[k] ?? 0)}</TableCell>
+                          <TableCell className="text-right tabular-nums font-semibold">{formatCurrency(diluicao?.valoresFinais[k] ?? 0)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="border-t-2 bg-primary/5 font-bold">
+                        <TableCell colSpan={4} className="text-xs">Total a pagar (demais parcelas)</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatCurrency(totalDiluido)}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       <div className="flex justify-between">
