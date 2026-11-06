@@ -1,6 +1,43 @@
 import { describe, it, expect } from 'vitest';
-import { calculatePMT, calcularPVReforco, calcularTotalPVReforcos } from './financial';
+import { calculatePMT, calcularPVReforco, calcularTotalPVReforcos, diluirValorAdiado } from './financial';
 import type { Reforco } from '@/types/contract';
+
+describe('diluirValorAdiado (parcela adiada diluída nas demais, com juros)', () => {
+  const dataBase = new Date(2026, 10, 6); // ~ data da renegociação
+  // Caso Vagner (simplificado): reforço 2026 adiado, recebe nos anos 2027..2032.
+  const adiada = [{ saldoAtual: 15214.26, dataVencimento: new Date(2026, 11, 5) }];
+  const recebedoras = [2027, 2028, 2029, 2030, 2031, 2032].map((ano) => ({
+    saldoAtual: 15214.26,
+    dataVencimento: new Date(ano, 11, 5),
+  }));
+
+  it('sem juros: divide o valor igualmente, sem acréscimo', () => {
+    const r = diluirValorAdiado(adiada, recebedoras, dataBase, 0);
+    // valor presente = saldo (taxa 0 não desconta)
+    expect(r.valorPresenteAdiado).toBeCloseTo(15214.26, 2);
+    // cada incremento = 15214.26 / 6
+    r.incrementos.forEach((inc) => expect(inc).toBeCloseTo(15214.26 / 6, 1));
+  });
+
+  it('com juros: a última parcela recebe o maior incremento', () => {
+    const r = diluirValorAdiado(adiada, recebedoras, dataBase, 1); // 1% a.m.
+    // incrementos estritamente crescentes (mais longe = mais juros)
+    for (let k = 1; k < r.incrementos.length; k++) {
+      expect(r.incrementos[k]).toBeGreaterThan(r.incrementos[k - 1]);
+    }
+    // soma diluída > valor adiado (juros do adiamento foram cobrados)
+    const somaInc = r.incrementos.reduce((s, x) => s + x, 0);
+    expect(somaInc).toBeGreaterThan(r.valorPresenteAdiado);
+  });
+
+  it('traz a valor presente antes (não usa o saldo cheio): adiada futura é limpa', () => {
+    // Uma adiada bem no futuro deve entrar por MENOS que o saldo (VP < saldo).
+    const adiadaFutura = [{ saldoAtual: 10000, dataVencimento: new Date(2030, 0, 1) }];
+    const rec = [{ saldoAtual: 5000, dataVencimento: new Date(2031, 0, 1) }];
+    const r = diluirValorAdiado(adiadaFutura, rec, dataBase, 1);
+    expect(r.valorPresenteAdiado).toBeLessThan(10000);
+  });
+});
 
 describe('calculatePMT', () => {
   it('sem juros, divide o PV igualmente', () => {

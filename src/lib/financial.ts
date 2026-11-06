@@ -51,6 +51,49 @@ export function capitalizarParcelaParaDataBase(
   return saldoAtual * Math.pow(1 + iDiaria, dias);
 }
 
+/**
+ * Diluição de parcela(s) ADIADA(S) nas demais parcelas a vencer, COM juros.
+ *
+ * Caso de uso: o cliente não vai pagar uma parcela (ex.: reforço anual de 2026)
+ * e quer jogar o valor dela nas parcelas seguintes, mantendo a estrutura (não vira
+ * mensal). Regra financeira (Suelen): NÃO pode juros sobre juros — por isso:
+ *   1. cada parcela adiada é trazida a VALOR PRESENTE na data base (tira o juro
+ *      embutido), virando um valor "limpo" V0;
+ *   2. V0 é dividido igualmente entre as parcelas que recebem;
+ *   3. cada pedaço rende juros NOVOS da data base até a data da parcela que recebe
+ *      (quanto mais pra frente, mais juros → a última fica a mais cara).
+ *
+ * A parcela adiada zera; cada recebedora = saldoAtual + incremento.
+ * Devolve os incrementos e os valores finais, na ordem de `recebedoras`.
+ */
+export function diluirValorAdiado(
+  adiadas: { saldoAtual: number; dataVencimento: Date }[],
+  recebedoras: { saldoAtual: number; dataVencimento: Date }[],
+  dataBase: Date,
+  monthlyRate: number,
+): { incrementos: number[]; valoresFinais: number[]; valorPresenteAdiado: number } {
+  // 1. Traz cada parcela adiada a valor presente na data base (limpa o juro embutido).
+  const vpAdiado = adiadas.reduce(
+    (s, a) => s + capitalizarParcelaParaDataBase(a.saldoAtual, a.dataVencimento, dataBase, monthlyRate),
+    0,
+  );
+  const n = recebedoras.length;
+  if (n === 0) return { incrementos: [], valoresFinais: [], valorPresenteAdiado: vpAdiado };
+
+  // 2. Divide igualmente o valor limpo entre as recebedoras.
+  const share = vpAdiado / n;
+  // 3. Aplica juros NOVOS da data base até a data de cada recebedora.
+  const iMensal = monthlyRate / 100;
+  const iDiaria = iMensal === 0 ? 0 : Math.pow(1 + iMensal, 1 / 30) - 1;
+  const incrementos = recebedoras.map((r) => {
+    const dias = Math.round((r.dataVencimento.getTime() - dataBase.getTime()) / 86400000);
+    const fator = iDiaria === 0 || dias <= 0 ? 1 : Math.pow(1 + iDiaria, dias);
+    return Math.round(share * fator * 100) / 100;
+  });
+  const valoresFinais = recebedoras.map((r, k) => Math.round((r.saldoAtual + incrementos[k]) * 100) / 100);
+  return { incrementos, valoresFinais, valorPresenteAdiado: Math.round(vpAdiado * 100) / 100 };
+}
+
 export function generateNovasParcelas(
   pmt: number,
   n: number,
