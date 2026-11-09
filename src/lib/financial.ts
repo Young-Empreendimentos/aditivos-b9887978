@@ -18,6 +18,34 @@ export function calculatePMT(pv: number, monthlyRate: number, n: number): number
  * Converte taxa mensal para diária: i_diária = (1+i_mensal)^(1/30) - 1
  * PV = valor / (1 + i_diária)^dias
  */
+/**
+ * Valor da parcela igual (PMT) considerando a DATA da 1ª parcela — modelo oficial
+ * da planilha padrão (célula G20):
+ *
+ *   parcela = PMT( taxa ; n ; FV( taxa_diária ; dias até (1ª parcela − 1 mês) ; saldo ) )
+ *
+ * Ou seja: capitaliza o saldo da data-base até 1 mês antes do 1º vencimento (é aqui que
+ * a espera entra — quanto mais longe, mais juros), e só então aplica o PMT. As parcelas
+ * saem todas IGUAIS entre si; a data de início muda apenas o nível delas.
+ */
+export function calcularParcelaPorData(
+  pv: number,
+  monthlyRate: number,
+  n: number,
+  startDate: Date,
+  dataBase: Date,
+): number {
+  if (n <= 0 || pv <= 0) return 0;
+  const umMesAntes = addMonths(startDate, -1);
+  const dias = Math.round((umMesAntes.getTime() - dataBase.getTime()) / 86400000);
+  let fv = pv;
+  if (monthlyRate !== 0 && dias !== 0) {
+    const iDiaria = Math.pow(1 + monthlyRate / 100, 1 / 30) - 1;
+    fv = pv * Math.pow(1 + iDiaria, dias); // dias < 0 desconta (1ª parcela muito cedo)
+  }
+  return calculatePMT(fv, monthlyRate, n);
+}
+
 export function calcularPVReforco(reforco: Reforco, startDate: Date, monthlyRate: number): number {
   const diffMs = reforco.data.getTime() - startDate.getTime();
   const dias = Math.max(0, Math.round(diffMs / 86400000));

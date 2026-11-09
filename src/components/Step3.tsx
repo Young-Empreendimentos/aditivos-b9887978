@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateInput } from '@/components/DateInput';
-import { calculatePMT, generateNovasParcelas, calcularTotalPVReforcos, capitalizarParcelaParaDataBase, diluirValorAdiado } from '@/lib/financial';
+import { calculatePMT, calcularParcelaPorData, generateNovasParcelas, calcularTotalPVReforcos, capitalizarParcelaParaDataBase, diluirValorAdiado } from '@/lib/financial';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import type { Parcela, NovaParcela, Reforco } from '@/types/contract';
@@ -104,9 +104,13 @@ export function Step3({
 
   const pvTotal = Math.max(0, pvBruto - totalPVReforcos);
 
+  // Parcela calculada POR DATA (modelo oficial G20): capitaliza o saldo até 1 mês
+  // antes da 1ª parcela e aplica o PMT. Sem data de início, cai no PMT simples.
   const pmt = useMemo(
-    () => calculatePMT(pvTotal, taxaJuros, numParcelas),
-    [pvTotal, taxaJuros, numParcelas]
+    () => startDate
+      ? calcularParcelaPorData(pvTotal, taxaJuros, numParcelas, startDate, dataRenegociacao)
+      : calculatePMT(pvTotal, taxaJuros, numParcelas),
+    [pvTotal, taxaJuros, numParcelas, startDate, dataRenegociacao]
   );
 
   // Gerar novas parcelas PMT

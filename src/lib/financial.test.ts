@@ -1,6 +1,26 @@
 import { describe, it, expect } from 'vitest';
-import { calculatePMT, calcularPVReforco, calcularTotalPVReforcos, diluirValorAdiado } from './financial';
+import { calculatePMT, calcularPVReforco, calcularTotalPVReforcos, diluirValorAdiado, calcularParcelaPorData } from './financial';
 import type { Reforco } from '@/types/contract';
+
+describe('calcularParcelaPorData (modelo oficial G20 — parcela depende da data de início)', () => {
+  const base = new Date(2026, 10, 9); // 09/11/2026
+  const fin = 3464.92;
+
+  it('parcelas iguais, mas quanto mais longe a 1ª, maior o valor', () => {
+    const prox = calcularParcelaPorData(fin, 1, 5, new Date(2026, 11, 15), base); // 15/12
+    const jan = calcularParcelaPorData(fin, 1, 5, new Date(2027, 0, 15), base);   // 15/01
+    const mar = calcularParcelaPorData(fin, 1, 5, new Date(2027, 2, 15), base);   // 15/03
+    expect(prox).toBeLessThan(jan);
+    expect(jan).toBeLessThan(mar);
+    // bate com a planilha (~722,5 em 15/01)
+    expect(jan).toBeCloseTo(722.49, 0);
+  });
+
+  it('1ª parcela 1 mês após a base = PMT simples (sem capitalização extra)', () => {
+    const p = calcularParcelaPorData(fin, 1, 5, new Date(2026, 11, 9), base); // base + 1 mês
+    expect(p).toBeCloseTo(calculatePMT(fin, 1, 5), 2);
+  });
+});
 
 describe('diluirValorAdiado (parcela adiada diluída nas demais, com juros)', () => {
   const dataBase = new Date(2026, 10, 6); // ~ data da renegociação
