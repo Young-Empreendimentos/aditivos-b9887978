@@ -102,8 +102,12 @@ function mapRowsToParcelas(rows: SiengeParcelaRow[]): Parcela[] {
     const numSienge = Number(raw);
     p.numero = numSienge > 0 ? numSienge : i + 1;
   });
-  // Ordenar por número da parcela (não por vencimento)
-  parcelas.sort((a, b) => a.numero - b.numero);
+  // Ordenar por VENCIMENTO (cronológico); no mesmo dia, pelo número da parcela.
+  // Assim a seleção no Quadro 1 fica na ordem em que o cliente paga, não agrupada
+  // por "stream" de cobrança (número).
+  parcelas.sort((a, b) =>
+    a.dataVencimento.getTime() - b.dataVencimento.getTime() || a.numero - b.numero
+  );
   return parcelas;
 }
 

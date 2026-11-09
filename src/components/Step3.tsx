@@ -88,11 +88,18 @@ export function Step3({
     [parcelas, selectedIds]
   );
 
-  // PV bruto = soma dos saldos capitalizados até a data da renegociação + custos
+  // PV bruto = soma dos saldos trazidos à data da renegociação + custos.
+  // Parcela VENCIDA entra pelo saldo atual COM acréscimo do Sienge (que já tem a multa/juros
+  // reais do atraso) e NÃO é recapitalizada — senão cobraria o atraso duas vezes, com uma
+  // taxa que não existe no contrato. Só as parcelas A VENCER são trazidas a valor presente.
   const pvBruto = useMemo(
-    () => selectedParcelas.reduce((s, p) =>
-      s + capitalizarParcelaParaDataBase(p.saldoAtual, p.dataVencimento, dataRenegociacao, taxaJuros), 0
-    ) + custosAdicionais,
+    () => selectedParcelas.reduce((s, p) => {
+      const vencida = p.dataVencimento.getTime() <= dataRenegociacao.getTime();
+      const valor = vencida
+        ? p.saldoAtual
+        : capitalizarParcelaParaDataBase(p.saldoAtual, p.dataVencimento, dataRenegociacao, taxaJuros);
+      return s + valor;
+    }, 0) + custosAdicionais,
     [selectedParcelas, custosAdicionais, dataRenegociacao, taxaJuros]
   );
 
@@ -151,23 +158,28 @@ export function Step3({
     // Ordenar por número da parcela
     items.sort((a, b) => a.numero - b.numero);
 
-    // Agrupar parcelas na mesma data em uma única parcela
-    // (o cliente paga UM boleto por vencimento = a soma do que cai no dia)
+    // Agrupar o que cai no mesmo dia num boleto só — MAS a parcela NOVA nunca se
+    // funde com mantida/reforço (fica sempre numa linha própria). Assim o "Valor da
+    // parcela" do resumo bate com a linha da nova no quadro. Mantidas entre si (as
+    // cobranças do mesmo mês) continuam juntando num boleto.
     const merged: NovaParcela[] = [];
     for (const item of items) {
+      if (item.tipo === 'nova') {
+        merged.push({ ...item }); // nova sempre em linha separada
+        continue;
+      }
       const dateKey = item.dataVencimento.getTime();
-      const existing = merged.find(m => m.dataVencimento.getTime() === dateKey);
+      const existing = merged.find(m => m.dataVencimento.getTime() === dateKey && m.tipo !== 'nova');
       if (existing) {
         existing.valor += item.valor;
-        // Se qualquer uma for 'nova', marca como 'nova'
-        if (item.tipo === 'nova' || existing.tipo === 'nova') existing.tipo = 'nova';
       } else {
         merged.push({ ...item });
       }
     }
 
-    // Ordenar o quadro final por data (cronológico)
-    merged.sort((a, b) => a.dataVencimento.getTime() - b.dataVencimento.getTime());
+    // Ordenar por data; no mesmo dia, mantida/reforço antes da nova (desempate estável)
+    const rankTipo = (t: NovaParcela['tipo']) => (t === 'nova' ? 1 : 0);
+    merged.sort((a, b) => a.dataVencimento.getTime() - b.dataVencimento.getTime() || rankTipo(a.tipo) - rankTipo(b.tipo));
 
     // Numeração: segue o número REAL da parcela (como no Quadro 1), consecutivo.
     // Começa no número da 1ª parcela a vencer do contrato (ex.: 27, 28, 29…) e NÃO
