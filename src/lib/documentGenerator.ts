@@ -120,6 +120,44 @@ function reforcarBordasQuadros(docXml: string): string {
   });
 }
 
+/**
+ * Junta num só boleto as parcelas que caem no MESMO vencimento — usado APENAS na
+ * geração do documento (aditivo .docx e demonstração/PDF). Na tela o Quadro 2 segue
+ * detalhado (Nova e Mantida separadas); no documento o cliente vê um valor por data.
+ * Soma os valores, reordena por data e renumera consecutivo. O total não muda.
+ */
+function juntarQuadro1PorData(parcelas: Parcela[]): Parcela[] {
+  const porData = new Map<number, Parcela>();
+  for (const p of parcelas) {
+    const k = p.dataVencimento.getTime();
+    const ex = porData.get(k);
+    if (ex) ex.valorOriginal = Math.round((ex.valorOriginal + p.valorOriginal) * 100) / 100;
+    else porData.set(k, { ...p });
+  }
+  const merged = [...porData.values()].sort((a, b) => a.dataVencimento.getTime() - b.dataVencimento.getTime());
+  const nums = parcelas.map((p) => (p.numero > 0 ? p.numero : Number.POSITIVE_INFINITY));
+  const inicio = nums.length && Number.isFinite(Math.min(...nums)) ? Math.min(...nums) : 1;
+  merged.forEach((p, i) => { p.numero = inicio + i; });
+  return merged;
+}
+
+function juntarQuadro2PorData(parcelas: NovaParcela[]): NovaParcela[] {
+  const porData = new Map<number, NovaParcela>();
+  for (const p of parcelas) {
+    const k = p.dataVencimento.getTime();
+    const ex = porData.get(k);
+    if (ex) {
+      ex.valor = Math.round((ex.valor + p.valor) * 100) / 100;
+      if (p.tipo === 'nova' || ex.tipo === 'nova') ex.tipo = 'nova';
+    } else porData.set(k, { ...p });
+  }
+  const merged = [...porData.values()].sort((a, b) => a.dataVencimento.getTime() - b.dataVencimento.getTime());
+  const nums = parcelas.map((p) => (p.numero > 0 ? p.numero : Number.POSITIVE_INFINITY));
+  const inicio = nums.length && Number.isFinite(Math.min(...nums)) ? Math.min(...nums) : 1;
+  merged.forEach((p, i) => { p.numero = inicio + i; });
+  return merged;
+}
+
 export async function generateDocx(
   templateFile: File,
   selectedParcelas: Parcela[],
@@ -156,9 +194,10 @@ export async function generateDocx(
   const totalQuadro1 = selectedParcelas.reduce((s, p) => s + p.valorOriginal, 0);
   const totalQuadro2 = novasParcelas.reduce((s, p) => s + p.valor, 0);
 
-  // Ordenar por número da parcela antes de gerar as linhas do documento
-  const sortedQ1 = [...selectedParcelas].sort((a, b) => a.numero - b.numero);
-  const sortedQ2 = [...novasParcelas].sort((a, b) => a.numero - b.numero);
+  // Juntar parcelas do mesmo vencimento (um boleto por data) e reordenar por data.
+  // Vale para os dois quadros, tanto no loop nativo quanto na tabela OOXML.
+  const sortedQ1 = juntarQuadro1PorData(selectedParcelas);
+  const sortedQ2 = juntarQuadro2PorData(novasParcelas);
 
   // Arrays para os loops nativos do docxtemplater {{#quadro1}}...{{/quadro1}}
   const quadro1Rows = sortedQ1.map((p) => ({
@@ -281,6 +320,10 @@ export async function generateAndDownloadPdf(
   // Dynamic import for html2pdf (it expects a DOM element)
   const html2pdf = (await import('html2pdf.js')).default;
 
+  // Juntar por data (um boleto por vencimento) — igual ao .docx.
+  const q1 = juntarQuadro1PorData(selectedParcelas);
+  const q2 = juntarQuadro2PorData(novasParcelas);
+
   const container = document.createElement('div');
   container.style.padding = '40px';
   container.style.fontFamily = 'Inter, Arial, sans-serif';
@@ -306,7 +349,7 @@ export async function generateAndDownloadPdf(
         <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">Data Vencimento</th>
         <th style="padding:6px 8px;border:1px solid #ddd;text-align:right;">Valor Original</th>
       </tr></thead>
-      <tbody>${selectedParcelas.map(p => `<tr>
+      <tbody>${q1.map(p => `<tr>
         <td style="padding:4px 8px;border:1px solid #ddd;">${String(p.numero).padStart(2, '0')}</td>
         <td style="padding:4px 8px;border:1px solid #ddd;">${formatDate(p.dataVencimento)}</td>
         <td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${formatCurrency(p.valorOriginal)}</td>
@@ -321,7 +364,7 @@ export async function generateAndDownloadPdf(
         <th style="padding:6px 8px;border:1px solid #ddd;text-align:right;">Valor</th>
         <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">Tipo</th>
       </tr></thead>
-      <tbody>${novasParcelas.map(p => `<tr>
+      <tbody>${q2.map(p => `<tr>
         <td style="padding:4px 8px;border:1px solid #ddd;">${String(p.numero).padStart(2, '0')}</td>
         <td style="padding:4px 8px;border:1px solid #ddd;">${formatDate(p.dataVencimento)}</td>
         <td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${formatCurrency(p.valor)}</td>
