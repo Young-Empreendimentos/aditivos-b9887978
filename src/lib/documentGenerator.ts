@@ -121,26 +121,14 @@ function reforcarBordasQuadros(docXml: string): string {
 }
 
 /**
- * Junta num só boleto as parcelas que caem no MESMO vencimento — usado APENAS na
- * geração do documento (aditivo .docx e demonstração/PDF). Na tela o Quadro 2 segue
- * detalhado (Nova e Mantida separadas); no documento o cliente vê um valor por data.
+ * Junta num só boleto as parcelas do Quadro 2 que caem no MESMO vencimento — usado
+ * APENAS na geração do documento (aditivo .docx e demonstração/PDF). Na tela o Quadro 2
+ * segue detalhado (Nova e Mantida separadas); no documento o cliente vê um valor por data.
  * Soma os valores, reordena por data e renumera consecutivo. O total não muda.
+ *
+ * O Quadro 1 (parcelas ORIGINAIS) NÃO é juntado: ele precisa manter os números reais
+ * das parcelas do Sienge, senão o documento não reflete o contrato original.
  */
-function juntarQuadro1PorData(parcelas: Parcela[]): Parcela[] {
-  const porData = new Map<number, Parcela>();
-  for (const p of parcelas) {
-    const k = p.dataVencimento.getTime();
-    const ex = porData.get(k);
-    if (ex) ex.valorOriginal = Math.round((ex.valorOriginal + p.valorOriginal) * 100) / 100;
-    else porData.set(k, { ...p });
-  }
-  const merged = [...porData.values()].sort((a, b) => a.dataVencimento.getTime() - b.dataVencimento.getTime());
-  const nums = parcelas.map((p) => (p.numero > 0 ? p.numero : Number.POSITIVE_INFINITY));
-  const inicio = nums.length && Number.isFinite(Math.min(...nums)) ? Math.min(...nums) : 1;
-  merged.forEach((p, i) => { p.numero = inicio + i; });
-  return merged;
-}
-
 function juntarQuadro2PorData(parcelas: NovaParcela[]): NovaParcela[] {
   const porData = new Map<number, NovaParcela>();
   for (const p of parcelas) {
@@ -194,9 +182,9 @@ export async function generateDocx(
   const totalQuadro1 = selectedParcelas.reduce((s, p) => s + p.valorOriginal, 0);
   const totalQuadro2 = novasParcelas.reduce((s, p) => s + p.valor, 0);
 
-  // Juntar parcelas do mesmo vencimento (um boleto por data) e reordenar por data.
-  // Vale para os dois quadros, tanto no loop nativo quanto na tabela OOXML.
-  const sortedQ1 = juntarQuadro1PorData(selectedParcelas);
+  // Quadro 1 (originais): mantém os números reais do Sienge, ordenado por número — NÃO junta.
+  // Quadro 2 (novo plano): junta por data (um boleto por vencimento) e reordena por data.
+  const sortedQ1 = [...selectedParcelas].sort((a, b) => a.numero - b.numero);
   const sortedQ2 = juntarQuadro2PorData(novasParcelas);
 
   // Arrays para os loops nativos do docxtemplater {{#quadro1}}...{{/quadro1}}
@@ -320,8 +308,8 @@ export async function generateAndDownloadPdf(
   // Dynamic import for html2pdf (it expects a DOM element)
   const html2pdf = (await import('html2pdf.js')).default;
 
-  // Juntar por data (um boleto por vencimento) — igual ao .docx.
-  const q1 = juntarQuadro1PorData(selectedParcelas);
+  // Quadro 1: originais com números reais (não junta). Quadro 2: junta por data.
+  const q1 = [...selectedParcelas].sort((a, b) => a.numero - b.numero);
   const q2 = juntarQuadro2PorData(novasParcelas);
 
   const container = document.createElement('div');
