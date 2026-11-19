@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
 import { generateDocx, downloadDocx, generateAndDownloadPdf } from '@/lib/documentGenerator';
 import { buildPlaceholders } from '@/lib/placeholders';
@@ -44,6 +45,8 @@ export function Step4({
   const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Juntar parcelas do mesmo vencimento num boleto só (só no documento gerado).
+  const [juntarPorData, setJuntarPorData] = useState(true);
 
   // Quadro 1: todas as parcelas com saldo > 0 (incluindo as selecionadas para renegociacao)
   const quadro1 = allParcelas.filter(p => selectedIds.has(p.rowIndex) || p.saldoAtual > 0);
@@ -59,7 +62,7 @@ export function Step4({
     setGenerating(true);
     try {
       const placeholders = buildPlaceholders(dadosForm, { dataRenegociacao });
-      const blob = await generateDocx(templateFile, quadro1, novasParcelas, taxaJuros, custosAdicionais, valorTotalRenegociado, placeholders);
+      const blob = await generateDocx(templateFile, quadro1, novasParcelas, taxaJuros, custosAdicionais, valorTotalRenegociado, placeholders, juntarPorData);
       downloadDocx(blob, fileName);
       toast.success('Documento .docx gerado com sucesso!');
     } catch (err: any) {
@@ -72,7 +75,7 @@ export function Step4({
   const handleGeneratePdf = async () => {
     setGenerating(true);
     try {
-      await generateAndDownloadPdf(quadro1, novasParcelas, taxaJuros, custosAdicionais, valorTotalRenegociado, pvTotal, 'aditivo_contratual.pdf');
+      await generateAndDownloadPdf(quadro1, novasParcelas, taxaJuros, custosAdicionais, valorTotalRenegociado, pvTotal, 'aditivo_contratual.pdf', juntarPorData);
       toast.success('PDF gerado com sucesso!');
     } catch (err: any) {
       toast.error(`Erro ao gerar PDF: ${err.message}`);
@@ -224,6 +227,14 @@ export function Step4({
           </CardContent>
         </Card>
       </div>
+
+      {/* Opção de juntar por data (vale só para o documento gerado) */}
+      <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+        <Checkbox checked={juntarPorData} onCheckedChange={(v) => setJuntarPorData(v === true)} />
+        <span>
+          Juntar parcelas do mesmo vencimento num boleto só (um valor por data) — aplica no documento (.docx/PDF)
+        </span>
+      </label>
 
       {/* Actions */}
       <div className="flex justify-between">

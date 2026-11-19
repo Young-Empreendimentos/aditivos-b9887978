@@ -168,7 +168,8 @@ export async function generateDocx(
   taxaJuros: number,
   custosAdicionais: number,
   valorTotalRenegociado: number,
-  extraPlaceholders: Record<string, string> = {}
+  extraPlaceholders: Record<string, string> = {},
+  juntarPorData = true
 ): Promise<Blob> {
   const arrayBuffer = await templateFile.arrayBuffer();
   const zip = new PizZip(arrayBuffer);
@@ -197,10 +198,14 @@ export async function generateDocx(
   const totalQuadro1 = selectedParcelas.reduce((s, p) => s + p.valorOriginal, 0);
   const totalQuadro2 = novasParcelas.reduce((s, p) => s + p.valor, 0);
 
-  // Quadro 1 (originais em aberto): junta por data, valor original, numeração sequencial.
-  // Quadro 2 (novo plano): junta por data (um boleto por vencimento).
-  const sortedQ1 = juntarQuadro1PorData(selectedParcelas);
-  const sortedQ2 = juntarQuadro2PorData(novasParcelas);
+  // Com "juntar por data": um boleto por vencimento (valor original no Q1).
+  // Sem juntar: parcelas detalhadas, na ordem de número.
+  const sortedQ1 = juntarPorData
+    ? juntarQuadro1PorData(selectedParcelas)
+    : [...selectedParcelas].sort((a, b) => a.numero - b.numero);
+  const sortedQ2 = juntarPorData
+    ? juntarQuadro2PorData(novasParcelas)
+    : [...novasParcelas].sort((a, b) => a.numero - b.numero);
 
   // Arrays para os loops nativos do docxtemplater {{#quadro1}}...{{/quadro1}}
   const quadro1Rows = sortedQ1.map((p) => ({
@@ -318,14 +323,19 @@ export async function generateAndDownloadPdf(
   custosAdicionais: number,
   valorTotalRenegociado: number,
   pvTotal: number,
-  filename: string
+  filename: string,
+  juntarPorData = true
 ) {
   // Dynamic import for html2pdf (it expects a DOM element)
   const html2pdf = (await import('html2pdf.js')).default;
 
-  // Quadro 1: abertas, valor original, juntadas por data. Quadro 2: junta por data.
-  const q1 = juntarQuadro1PorData(selectedParcelas);
-  const q2 = juntarQuadro2PorData(novasParcelas);
+  // Com "juntar por data": um boleto por vencimento. Sem: detalhado, por número.
+  const q1 = juntarPorData
+    ? juntarQuadro1PorData(selectedParcelas)
+    : [...selectedParcelas].sort((a, b) => a.numero - b.numero);
+  const q2 = juntarPorData
+    ? juntarQuadro2PorData(novasParcelas)
+    : [...novasParcelas].sort((a, b) => a.numero - b.numero);
 
   const container = document.createElement('div');
   container.style.padding = '40px';
